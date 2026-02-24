@@ -1,0 +1,742 @@
+[
+  {
+    "type": "poetry",
+    "prompt": "Write a poem about your favorite food. Focus on taste, smell, and texture."
+  },
+  {
+    "type": "poetry",
+    "prompt": "Imagine you are the wind\u2014what do you see, touch, or whisper as you travel?"
+  },
+  {
+    "type": "poetry",
+    "prompt": "Describe a rainy afternoon from the perspective of the raindrops."
+  },
+  {
+    "type": "emoji",
+    "prompt": "Which face shows how you feel today? Why?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Which \"weather\" describes your mood?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Was your day fast, slow, or did something stop you?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Which subject/activity was your favorite today?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Did you solve a puzzle, unlock an idea, or get a new lightbulb moment?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Did you feel proud, strong, or thoughtful in class today?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Who did you connect or talk with today?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Did someone make you feel loved, upset, or happy?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Did you give or receive kindness today?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "If you could live in a story today, would it be magical, heroic, or futuristic?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Where would you teleport if you could go anywhere?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "If you had one wish today, what would it be?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Did you achieve something, grow in some way, or hit a challenge?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Did you help someone, work with someone, or set a goal today?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "What would you repeat, improve, or celebrate about today?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "What kind of \"weather\" is in your heart today?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Which one matches your energy right now: fiery, frozen, or flowing?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Did something lift you up, focus you, or shake you today?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "What reflection, door, or path appeared for you this week?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "What new thought or conversation opened your mind today?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Did you unpack, discover, or create something surprising?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Which stage are you in right now \u2014 just planted, growing, or strong and steady?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "Are you building, climbing, or celebrating something?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "What piece of your story changed or fit better today?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "What kind of magic would you create if you could?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "If you found a secret portal, where would it lead?"
+  },
+  {
+    "type": "emoji",
+    "prompt": "What happens when past, play, and fantasy collide?"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Fantasy & Adventure: wizard/sword/dragon/crown"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Fantasy: unicorn/forest/sparkles/key"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Fantasy: princess/clock/crystal ball/owl"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Travel: rocket/planet/alien/galaxy"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Travel: ship/island/map/parrot"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Travel: train/mountain/forest/house"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Mystery: detective/magnifying glass/key/door"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Mystery: scroll/briefcase/puzzle/clock"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Mystery: bat/full moon/haunted house/ghost"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Animals: monkey/banana/palm tree/ocean"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Animals: wolf/snow/forest/mountain"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Animals: butterfly/sunflower/rain/rainbow"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Sci-Fi: robot/lightning/satellite/earth"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Sci-Fi: astronaut/rocket/moon/alien"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Sci-Fi: DNA/microscope/germ/star"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Everyday twist: backpack/lightning/speech bubble/eyes"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Everyday twist: phone/spiral/door/robot"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Everyday twist: pizza/guitar/theater/superhero"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Fantasy & Magic: candle/scroll/dragon/moon"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Fantasy & Magic: fox/forest/elf/gem"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Fantasy & Magic: wand/clock/door/compass"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Adventure & Sci-Fi: UFO/volcano/planet/robot arm"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Adventure & Sci-Fi: satellite/headphones/black hole/brain"
+  },
+  {
+    "type": "emoji_story_starter",
+    "prompt": "Adventure & Sci-Fi: DNA/rainbow/alien/explosion"
+  },
+  {
+    "type": "reflective",
+    "prompt": "Write about a moment when you realized you were stronger than you thought."
+  },
+  {
+    "type": "reflective",
+    "prompt": "If your thoughts had colors, what would today's look like?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "What does \"home\" mean to you, beyond just a place?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "What's something small that made a big difference in your week?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "When do you feel most alive, and why?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "If you could give advice to your future self, what would it be?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "What's one thing you wish people understood about you?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "Describe a place that always calms you down \u2014 even if it's imaginary."
+  },
+  {
+    "type": "reflective",
+    "prompt": "What is a rule you once followed that you now question?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "How has your definition of \"success\" changed over time?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "When was the last time you surprised yourself?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "Who in your life deserves a thank-you letter you've never written?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "When was the last time you felt truly listened to?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "What does kindness look like in action \u2014 not just in words?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "What's something you could do this week that would make someone else smile?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "What challenge are you currently facing that might actually be teaching you something?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "Describe a time when persistence paid off."
+  },
+  {
+    "type": "reflective",
+    "prompt": "What's one habit you'd like to grow and why?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "How do you handle moments when things don't go your way?"
+  },
+  {
+    "type": "reflective",
+    "prompt": "Write about a person who inspires your courage."
+  },
+  {
+    "type": "reflective",
+    "prompt": "What does progress feel like \u2014 not look like?"
+  },
+  {
+    "type": "creative",
+    "prompt": "If you could pause time for one hour, what would you do?"
+  },
+  {
+    "type": "creative",
+    "prompt": "Imagine trading dreams with someone for one night \u2014 what happens?"
+  },
+  {
+    "type": "creative",
+    "prompt": "The stars start rearranging themselves \u2014 what message do they spell?"
+  },
+  {
+    "type": "creative",
+    "prompt": "Write your day as if it were a movie trailer."
+  },
+  {
+    "type": "creative",
+    "prompt": "Invent a new holiday and describe how people celebrate it."
+  },
+  {
+    "type": "creative",
+    "prompt": "If your emotions had a soundtrack, what song would be playing right now?"
+  },
+  {
+    "type": "creative",
+    "prompt": "Describe your life as if you were a character in a fantasy world."
+  },
+  {
+    "type": "creative",
+    "prompt": "Imagine a conversation between two objects in your room."
+  },
+  {
+    "type": "creative",
+    "prompt": "You open a book and fall into its world. What happens first?"
+  },
+  {
+    "type": "creative",
+    "prompt": "Write a story from the perspective of your shadow."
+  },
+  {
+    "type": "creative",
+    "prompt": "A forgotten smell suddenly brings back a memory you didn't know you had."
+  },
+  {
+    "type": "creative",
+    "prompt": "Imagine a world where emotions have physical colors. What does yours look like today?"
+  },
+  {
+    "type": "creative",
+    "prompt": "Every mirror in the world starts showing a different reflection \u2014 what does yours show?"
+  },
+  {
+    "type": "creative",
+    "prompt": "You find a letter addressed to you from 100 years in the future. What does it say?"
+  },
+  {
+    "type": "creative",
+    "prompt": "The stars blink in a new pattern \u2014 what are they trying to tell humanity?"
+  },
+  {
+    "type": "creative",
+    "prompt": "Write from the viewpoint of something small (a bug, a pebble, a raindrop)."
+  },
+  {
+    "type": "creative",
+    "prompt": "If a stranger could read one page of your life, which moment would you show?"
+  },
+  {
+    "type": "creative",
+    "prompt": "What would kindness sound like if it had a voice?"
+  },
+  {
+    "type": "creative",
+    "prompt": "You have a remote that can rewind time, but only by 10 minutes. You can use it once a day. How do you use it today?"
+  },
+  {
+    "type": "creative",
+    "prompt": "If you could send one text message to any person in history, what would you say?"
+  },
+  {
+    "type": "creative",
+    "prompt": "You are burying a time capsule to be opened in 100 years. You can only put inside: one song, one news article, and one object. What are they?"
+  },
+  {
+    "type": "creative",
+    "prompt": "If you woke up tomorrow as a 70-year-old version of yourself, what is the first thing you would check or ask?"
+  },
+  {
+    "type": "critical_thinking",
+    "prompt": "Pick a villain from a movie or book. Write a paragraph explaining why they might actually be the hero (or at least misunderstood)."
+  },
+  {
+    "type": "critical_thinking",
+    "prompt": "If you could un-invent one piece of technology, what would it be and why?"
+  },
+  {
+    "type": "critical_thinking",
+    "prompt": "Write a story about a hero whose superpower is totally useless. How do they save the day anyway?"
+  },
+  {
+    "type": "critical_thinking",
+    "prompt": "Describe a situation where telling a lie is better than telling the truth."
+  },
+  {
+    "type": "critical_thinking",
+    "prompt": "If you could change one rule at this school -- not to make it easier, but to make it fairer -- what would it be?"
+  },
+  {
+    "type": "descriptive",
+    "prompt": "Describe a room that someone just left in a hurry. What clues did they leave behind?"
+  },
+  {
+    "type": "descriptive",
+    "prompt": "Try to describe the color Red to someone who has been blind their whole life. You cannot use the words \"fire,\" \"blood,\" or \"apple.\""
+  },
+  {
+    "type": "descriptive",
+    "prompt": "Write a dialogue between two people arguing over something incredibly silly, but treat it like a life-or-death situation."
+  },
+  {
+    "type": "descriptive",
+    "prompt": "If your life right now was a movie scene, what song is playing in the background? Explain why."
+  },
+  {
+    "type": "list",
+    "prompt": "List 3 people you would want on your zombie apocalypse survival team. Assign each a role and explain why."
+  },
+  {
+    "type": "list",
+    "prompt": "List 5 things you never, ever want to do."
+  },
+  {
+    "type": "list",
+    "prompt": "If you could have dinner with one fictional character, one historical figure, and one celebrity, who are the three?"
+  },
+  {
+    "type": "list",
+    "prompt": "If you were King/Queen of the World for a day, what three minor annoyances would you make illegal?"
+  },
+  {
+    "type": "visual",
+    "prompt": "Draw a random squiggle. Turn it into a recognizable object, then write 3 sentences about what that object is doing."
+  },
+  {
+    "type": "visual",
+    "prompt": "Take a page from an old magazine. Black out almost all the words, leaving only 5-10 visible that form a poem or sentence."
+  },
+  {
+    "type": "visual",
+    "prompt": "This object was used as a weapon in a mystery. Who used it and why?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"The unexamined life is not worth living.\"",
+    "source": "Socrates",
+    "writing_prompt": "Do you agree? What does it mean to \"examine\" your life?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Know thyself.\"",
+    "source": "Temple of Apollo at Delphi",
+    "writing_prompt": "How well do you know yourself? What's something you've recently learned about who you are?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Until you make the unconscious conscious, it will direct your life and you will call it fate.\"",
+    "source": "Carl Jung",
+    "writing_prompt": "What habits or patterns do you follow without thinking?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"What lies behind us and what lies before us are tiny matters compared to what lies within us.\"",
+    "source": "Ralph Waldo Emerson",
+    "writing_prompt": "What quality inside you are you most proud of?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"We are what we repeatedly do. Excellence, then, is not an act but a habit.\"",
+    "source": "Aristotle",
+    "writing_prompt": "What habit defines you?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"He who has a why to live can bear almost any how.\"",
+    "source": "Friedrich Nietzsche",
+    "writing_prompt": "What is your \"why\"?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Man is not worried by real problems so much as by his imagined anxieties about real problems.\"",
+    "source": "Epictetus",
+    "writing_prompt": "Write about a time you worried more than you needed to."
+  },
+  {
+    "type": "quote",
+    "prompt": "\"In the middle of difficulty lies opportunity.\"",
+    "source": "Albert Einstein",
+    "writing_prompt": "Describe a difficulty that turned into an opportunity."
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Courage is not simply one of the virtues, but the form of every virtue at the testing point.\"",
+    "source": "C.S. Lewis",
+    "writing_prompt": "When have you shown courage?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"When we are no longer able to change a situation, we are challenged to change ourselves.\"",
+    "source": "Viktor Frankl",
+    "writing_prompt": "Describe a situation you cannot change. How can you adapt?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Do not act as if you were going to live ten thousand years. Death hangs over you. While you live, while it is in your power, be good.\"",
+    "source": "Marcus Aurelius",
+    "writing_prompt": "If today were your last day, what would you do differently?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"We are what we think. All that we are arises with our thoughts.\"",
+    "source": "Buddha",
+    "writing_prompt": "What thoughts have shaped who you are today?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"The meaning of life is to find your gift; the purpose of life is to give it away.\"",
+    "source": "Pablo Picasso",
+    "writing_prompt": "What is your gift?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Our lives begin to end the day we become silent about things that matter.\"",
+    "source": "Martin Luther King Jr.",
+    "writing_prompt": "What do you refuse to stay silent about?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Love is patient, love is kind.\"",
+    "source": "1 Corinthians 13:4",
+    "writing_prompt": "What does love look like in your daily life?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"We shape our tools and thereafter our tools shape us.\"",
+    "source": "Marshall McLuhan",
+    "writing_prompt": "How has technology shaped who you are?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"We don't see things as they are, we see them as we are.\"",
+    "source": "Anais Nin",
+    "writing_prompt": "How might your perspective be different from someone else's?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"The first principle is that you must not fool yourself\u2014and you are the easiest person to fool.\"",
+    "source": "Richard Feynman",
+    "writing_prompt": "When have you been fooled by your own assumptions?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Attention is the beginning of devotion.\"",
+    "source": "Mary Oliver",
+    "writing_prompt": "What do you pay the most attention to? What does that say about you?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"To be yourself in a world that is constantly trying to make you something else is the greatest accomplishment.\"",
+    "source": "Ralph Waldo Emerson",
+    "writing_prompt": "In what ways does the world try to change who you are?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"What is a friend? A single soul dwelling in two bodies.\"",
+    "source": "Aristotle",
+    "writing_prompt": "Describe a friendship that changed you."
+  },
+  {
+    "type": "quote",
+    "prompt": "\"How we spend our days is, of course, how we spend our lives.\"",
+    "source": "Annie Dillard",
+    "writing_prompt": "How did you spend today? Are you okay with that?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"What you do makes a difference, and you have to decide what kind of difference you want to make.\"",
+    "source": "Jane Goodall",
+    "writing_prompt": "What kind of difference do you want to make?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"We suffer more often in imagination than in reality.\"",
+    "source": "Seneca",
+    "writing_prompt": "Write about a time you worried about something that turned out to be no big deal."
+  },
+  {
+    "type": "quote",
+    "prompt": "\"If you are the smartest person in the room, you are in the wrong room.\"",
+    "source": "Confucius",
+    "writing_prompt": "Do you agree? Is it better to be the leader, or the one learning?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Luck is what happens when preparation meets opportunity.\"",
+    "source": "Seneca",
+    "writing_prompt": "Do you believe in \"luck,\" or do people make their own luck?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Comparison is the thief of joy.\"",
+    "source": "Theodore Roosevelt",
+    "writing_prompt": "In the age of social media, is it possible to stop comparing ourselves to others?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"To study and not think is a waste. To think and not study is dangerous.\"",
+    "source": "Confucius",
+    "writing_prompt": "Do you think more or study more? Which matters more?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Real knowledge is to know the extent of one's ignorance.\"",
+    "source": "Confucius",
+    "writing_prompt": "What's something you recently realized you didn't know?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"The man who moves a mountain begins by carrying away small stones.\"",
+    "source": "Confucius",
+    "writing_prompt": "What \"mountain\" are you working on moving? What small steps can you take?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"What you do not want done to yourself, do not do to others.\"",
+    "source": "Confucius",
+    "writing_prompt": "When have you broken or followed this rule?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"It does not matter how slowly you go as long as you do not stop.\"",
+    "source": "Confucius",
+    "writing_prompt": "Where in your life do you need to keep going, even slowly?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"The journey of a thousand miles begins with a single step.\"",
+    "source": "Lao Tzu",
+    "writing_prompt": "What journey are you at the beginning of?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Knowing others is intelligence; knowing yourself is true wisdom.\"",
+    "source": "Lao Tzu",
+    "writing_prompt": "What's the hardest thing about knowing yourself?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Mastering others is strength. Mastering yourself is true power.\"",
+    "source": "Lao Tzu",
+    "writing_prompt": "What part of yourself do you struggle to master?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Water is the softest thing, yet it can penetrate mountains and earth.\"",
+    "source": "Lao Tzu",
+    "writing_prompt": "When has being \"soft\" or patient actually been more powerful than force?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Appear weak when you are strong, and strong when you are weak.\"",
+    "source": "Sun Tzu",
+    "writing_prompt": "When have you hidden your true strength or weakness? Why?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"The supreme art of war is to subdue the enemy without fighting.\"",
+    "source": "Sun Tzu",
+    "writing_prompt": "Describe a conflict you resolved without fighting."
+  },
+  {
+    "type": "quote",
+    "prompt": "\"If you know the enemy and know yourself, you need not fear the result of a hundred battles.\"",
+    "source": "Sun Tzu",
+    "writing_prompt": "What does it mean to truly \"know\" yourself and your challenges?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"In the midst of chaos, there is also opportunity.\"",
+    "source": "Sun Tzu",
+    "writing_prompt": "When has chaos led to something good in your life?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"I know that I am intelligent, because I know that I know nothing.\"",
+    "source": "Socrates",
+    "writing_prompt": "Is admitting ignorance a sign of intelligence? Why or why not?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Wise men speak because they have something to say; fools because they have to say something.\"",
+    "source": "Plato",
+    "writing_prompt": "When should you speak up, and when should you stay quiet?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"We can easily forgive a child who is afraid of the dark; the real tragedy of life is when men are afraid of the light.\"",
+    "source": "Plato",
+    "writing_prompt": "What \"light\" (truth) are people afraid of today?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"You have power over your mind \u2014 not outside events. Realize this, and you will find strength.\"",
+    "source": "Marcus Aurelius",
+    "writing_prompt": "What events are you trying to control that are actually outside your power?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"The best revenge is to be unlike him who performed the injury.\"",
+    "source": "Marcus Aurelius",
+    "writing_prompt": "How do you respond when someone wrongs you?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"It is not that we have a short time to live, but that we waste a lot of it.\"",
+    "source": "Seneca",
+    "writing_prompt": "How do you waste time? What would you change?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"It is impossible for a man to learn what he thinks he already knows.\"",
+    "source": "Epictetus",
+    "writing_prompt": "What topic have you avoided learning more about because you thought you already knew enough?"
+  },
+  {
+    "type": "quote",
+    "prompt": "\"Men are disturbed not by things, but by the view which they take of them.\"",
+    "source": "Epictetus",
+    "writing_prompt": "Can you change how you see a problem you're facing right now?"
+  }
+]
