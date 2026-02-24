@@ -41,7 +41,7 @@ export async function getAIConfig(): Promise<AIConfig> {
     provider: (map.ai_provider as AIProvider) || 'gemini',
     geminiApiKey: map.gemini_api_key || process.env.GEMINI_API_KEY || '',
     anthropicApiKey: map.anthropic_api_key || process.env.ANTHROPIC_API_KEY || '',
-    geminiModel: map.gemini_model || 'gemini-2.0-flash-lite',
+    geminiModel: map.gemini_model || 'gemini-2.5-flash',
     anthropicModel: map.anthropic_model || 'claude-sonnet-4-20250514',
   };
 }
@@ -58,7 +58,7 @@ export async function getApiKey(): Promise<string> {
 export function getGeminiModel(apiKey: string, modelName?: string) {
   if (!apiKey) return null;
   const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: modelName || 'gemini-2.0-flash-lite' });
+  return genAI.getGenerativeModel({ model: modelName || 'gemini-2.5-flash' });
 }
 
 // ============================================================

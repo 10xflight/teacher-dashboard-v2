@@ -12,10 +12,9 @@ interface ClassInfo {
 type AIProvider = 'gemini' | 'anthropic';
 
 const GEMINI_MODELS = [
-  { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (Free)' },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
   { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' },
 ];
 
 const ANTHROPIC_MODELS = [
@@ -57,7 +56,7 @@ export default function SettingsPage() {
   const [provider, setProvider] = useState<AIProvider>('gemini');
   const [geminiKey, setGeminiKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
-  const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash-lite');
+  const [geminiModel, setGeminiModel] = useState('gemini-2.5-flash');
   const [anthropicModel, setAnthropicModel] = useState('claude-sonnet-4-20250514');
   const [schoolName, setSchoolName] = useState('');
   const [teacherName, setTeacherName] = useState('');
@@ -85,7 +84,9 @@ export default function SettingsPage() {
         setProvider((settings.ai_provider as AIProvider) || 'gemini');
         setGeminiKey(settings.gemini_api_key || '');
         setAnthropicKey(settings.anthropic_api_key || '');
-        setGeminiModel(settings.gemini_model || 'gemini-2.0-flash-lite');
+        const validGeminiModels = GEMINI_MODELS.map(m => m.value);
+        const loadedGeminiModel = settings.gemini_model || 'gemini-2.5-flash';
+        setGeminiModel(validGeminiModels.includes(loadedGeminiModel) ? loadedGeminiModel : 'gemini-2.5-flash');
         setAnthropicModel(settings.anthropic_model || 'claude-sonnet-4-20250514');
         setSchoolName(settings.school_name || '');
         setTeacherName(settings.teacher_name || '');
