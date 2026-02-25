@@ -69,7 +69,7 @@ export async function GET() {
     const now = new Date();
     const fourWeeksAgo = new Date(now);
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-    const cutoffDate = fourWeeksAgo.toISOString().split('T')[0];
+    const cutoffDate = `${fourWeeksAgo.getFullYear()}-${String(fourWeeksAgo.getMonth() + 1).padStart(2, '0')}-${String(fourWeeksAgo.getDate()).padStart(2, '0')}`;
 
     // 6. Group standards by subject + grade_band and map to each class
     //    We match classes to standards by name heuristics or just show all

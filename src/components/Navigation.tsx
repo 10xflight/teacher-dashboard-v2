@@ -137,9 +137,11 @@ export default function Navigation({ isOpen, onClose }: NavigationProps) {
         <div className="p-5 border-b border-border">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-bold text-accent tracking-tight">
-                Teacher Dashboard
-              </h1>
+              <Link href="/" onClick={onClose}>
+                <h1 className="text-lg font-bold text-accent tracking-tight hover:brightness-110 transition-all cursor-pointer">
+                  Teacher Dashboard
+                </h1>
+              </Link>
               <p className="text-xs text-text-muted mt-0.5">
                 {displayName}{shortSchool ? ` \u00B7 ${shortSchool}` : ''}
               </p>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { localDateStr } from '@/lib/task-helpers';
 
 // ── Types ──
 
@@ -75,11 +76,11 @@ function formatDate(dateStr: string) {
 function getTomorrow() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
+  return localDateStr(d);
 }
 
 function getToday() {
-  return new Date().toISOString().split('T')[0];
+  return localDateStr();
 }
 
 // ── Sub-components ──

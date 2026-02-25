@@ -62,6 +62,8 @@ export default function SettingsPage() {
   const [teacherName, setTeacherName] = useState('');
   const [schoolYear, setSchoolYear] = useState('');
   const [periodsPerDay, setPeriodsPerDay] = useState(7);
+  const [gradingPeriodEnd, setGradingPeriodEnd] = useState('');
+  const [semesterEnd, setSemesterEnd] = useState('');
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
   const [seedingCalendar, setSeedingCalendar] = useState(false);
@@ -92,6 +94,8 @@ export default function SettingsPage() {
         setTeacherName(settings.teacher_name || '');
         setSchoolYear(settings.school_year || '');
         setPeriodsPerDay(parseInt(settings.periods_per_day) || 7);
+        setGradingPeriodEnd(settings.grading_period_end || '');
+        setSemesterEnd(settings.semester_end || '');
         setClasses(cls || []);
       } catch { /* ignore */ }
     }
@@ -107,6 +111,8 @@ export default function SettingsPage() {
         teacher_name: teacherName,
         school_year: schoolYear,
         periods_per_day: String(periodsPerDay),
+        grading_period_end: gradingPeriodEnd,
+        semester_end: semesterEnd,
       }),
     });
     showToast('School info saved!');
@@ -212,17 +218,27 @@ export default function SettingsPage() {
             <input type="text" value={schoolYear} onChange={e => setSchoolYear(e.target.value)} className={inputCls} />
           </div>
         </div>
-        <div className="mb-4">
-          <label className={labelCls}>Periods Per Day</label>
-          <select
-            value={periodsPerDay}
-            onChange={e => setPeriodsPerDay(parseInt(e.target.value))}
-            className="px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:border-accent focus:outline-none"
-          >
-            {[4, 5, 6, 7, 8, 9, 10].map(n => (
-              <option key={n} value={n}>{n} periods</option>
-            ))}
-          </select>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className={labelCls}>Periods Per Day</label>
+            <select
+              value={periodsPerDay}
+              onChange={e => setPeriodsPerDay(parseInt(e.target.value))}
+              className={inputCls}
+            >
+              {[4, 5, 6, 7, 8, 9, 10].map(n => (
+                <option key={n} value={n}>{n} periods</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Grading Period Ends</label>
+            <input type="date" value={gradingPeriodEnd} onChange={e => setGradingPeriodEnd(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Semester Ends</label>
+            <input type="date" value={semesterEnd} onChange={e => setSemesterEnd(e.target.value)} className={inputCls} />
+          </div>
         </div>
         <button onClick={saveSchoolInfo} className={btnCls}>
           Save Info

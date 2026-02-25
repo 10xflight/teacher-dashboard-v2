@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { localDateStr } from '@/lib/task-helpers';
 
 const JOURNAL_TYPE_OPTIONS = [
   { value: 'creative', label: 'Creative' },
@@ -49,9 +50,13 @@ function Toast({ message, isError, onDone }: { message: string; isError?: boolea
 
 export default function BellringerEditPage() {
   const params = useParams();
-  const dateStr = params.date === 'today'
-    ? new Date().toISOString().split('T')[0]
+  const initialDate = params.date === 'today'
+    ? localDateStr()
     : String(params.date);
+
+  // The "viewing" date — drives what date we assign to / load from
+  const [viewDate, setViewDate] = useState(initialDate);
+  const [dateAssigned, setDateAssigned] = useState(false);
 
   const [prompts, setPrompts] = useState<PromptSlot[]>([
     { journal_type: 'creative', journal_prompt: '', journal_subprompt: 'WRITE A PARAGRAPH IN YOUR JOURNAL!', image_path: null },
@@ -70,27 +75,62 @@ export default function BellringerEditPage() {
   const [toast, setToast] = useState<{ message: string; isError?: boolean } | null>(null);
   const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const loaded = useRef(false);
+  const datePickerRef = useRef<HTMLInputElement>(null);
 
   const showToast = useCallback((message: string, isError?: boolean) => {
     setToast({ message, isError });
   }, []);
 
-  // Mark dirty on any user change (but not on initial load)
-  function markDirty() {
-    if (loaded.current) setDirty(true);
+  // Format date for display: "Mon 02/24/26"
+  function formatDateChip(dateStr: string) {
+    const d = new Date(dateStr + 'T12:00:00');
+    const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${dayName} ${mm}/${dd}/${yy}`;
   }
 
-  // Load existing bellringer
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`/api/bellringers/${dateStr}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!data) return;
-        const b = data.bellringer;
+  // Step date by N days, skipping weekends
+  function stepDate(days: number) {
+    const d = new Date(viewDate + 'T12:00:00');
+    const dir = days > 0 ? 1 : -1;
+    let steps = Math.abs(days);
+    while (steps > 0) {
+      d.setDate(d.getDate() + dir);
+      if (d.getDay() !== 0 && d.getDay() !== 6) steps--;
+    }
+    setViewDate(localDateStr(d));
+  }
 
-        if (data.prompts?.length > 0) {
+  // Mark dirty on any user change (but not on initial load)
+  function markDirty() {
+    if (loaded.current) {
+      setDirty(true);
+    }
+  }
+
+  // Load bellringer for the current viewDate
+  const loadBellringer = useCallback(async (date: string) => {
+    loaded.current = false;
+    try {
+      const res = await fetch(`/api/bellringers/${date}`);
+      if (!res.ok) {
+        setDateAssigned(false);
+        loaded.current = true;
+        return;
+      }
+      const data = await res.json();
+      if (!data?.bellringer && (!data?.prompts || data.prompts.length === 0)) {
+        setDateAssigned(false);
+        loaded.current = true;
+        return;
+      }
+      const b = data.bellringer;
+
+      if (data.prompts?.length > 0) {
+        const hasContent = data.prompts.some((p: { journal_prompt?: string }) => p.journal_prompt?.trim());
+        if (hasContent) {
           const slots: PromptSlot[] = [0, 1, 2, 3].map(i => {
             const p = data.prompts.find((pr: { slot: number }) => pr.slot === i);
             return {
@@ -105,8 +145,11 @@ export default function BellringerEditPage() {
             setSubprompt(data.prompts[0].journal_subprompt);
           }
         }
+      }
 
-        if (b) {
+      if (b) {
+        const hasACT = b.act_question?.trim() || b.act_skill?.trim();
+        if (hasACT) {
           const choices = [b.act_choice_a, b.act_choice_b, b.act_choice_c, b.act_choice_d]
             .filter(Boolean).join('\n');
           setAct({
@@ -117,14 +160,20 @@ export default function BellringerEditPage() {
             act_rule: b.act_rule || '',
           });
         }
-      } catch {
-        // No existing bellringer
       }
-      // Allow dirty tracking after load completes
-      setTimeout(() => { loaded.current = true; }, 100);
+
+      setDateAssigned(true);
+      setDirty(false);
+    } catch {
+      setDateAssigned(false);
     }
-    load();
-  }, [dateStr]);
+    setTimeout(() => { loaded.current = true; }, 100);
+  }, []);
+
+  // Load on initial mount and when viewDate changes
+  useEffect(() => {
+    loadBellringer(viewDate);
+  }, [viewDate, loadBellringer]);
 
   function updatePrompt(slot: number, field: keyof PromptSlot, value: string) {
     markDirty();
@@ -191,13 +240,13 @@ export default function BellringerEditPage() {
     };
   }
 
-  async function saveBellringer() {
+  async function assignToDate() {
     setSaving(true);
     try {
       const saveRes = await fetch('/api/bellringers/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: dateStr, prompts: getPromptPayloads(), ...getACTPayload() }),
+        body: JSON.stringify({ date: viewDate, prompts: getPromptPayloads(), ...getACTPayload() }),
       });
       if (!saveRes.ok) {
         const err = await saveRes.json().catch(() => ({}));
@@ -208,7 +257,7 @@ export default function BellringerEditPage() {
       const approveRes = await fetch('/api/bellringers/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: dateStr }),
+        body: JSON.stringify({ date: viewDate }),
       });
       if (!approveRes.ok) {
         const err = await approveRes.json().catch(() => ({}));
@@ -217,7 +266,8 @@ export default function BellringerEditPage() {
       }
 
       setDirty(false);
-      showToast('Saved!');
+      setDateAssigned(true);
+      showToast(`Assigned to ${formatDateChip(viewDate)}`);
       return true;
     } catch {
       showToast('Failed to save — check your connection', true);
@@ -227,11 +277,24 @@ export default function BellringerEditPage() {
     }
   }
 
-  async function saveAndDisplay() {
-    const ok = await saveBellringer();
-    if (ok) {
-      window.open(`/display/${dateStr}?t=${Date.now()}`, 'tv-display');
+  async function clearFromDate() {
+    if (!dateAssigned) return;
+    try {
+      const res = await fetch(`/api/bellringers/${viewDate}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || 'Clear failed', true);
+        return;
+      }
+      setDateAssigned(false);
+      showToast(`Cleared ${formatDateChip(viewDate)}`);
+    } catch {
+      showToast('Failed to clear', true);
     }
+  }
+
+  function openDisplay() {
+    window.open(`/display/${viewDate}?t=${Date.now()}`, 'tv-display');
   }
 
   async function generateAll() {
@@ -240,7 +303,7 @@ export default function BellringerEditPage() {
       const res = await fetch('/api/bellringers/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: dateStr, notes: teacherNotes }),
+        body: JSON.stringify({ date: viewDate, notes: teacherNotes }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -287,7 +350,7 @@ export default function BellringerEditPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          date: dateStr,
+          date: viewDate,
           slot,
           prompt_type: prompts[slot].journal_type,
           notes: teacherNotes,
@@ -315,7 +378,7 @@ export default function BellringerEditPage() {
       const res = await fetch('/api/bellringers/generate-act', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: dateStr, notes: teacherNotes }),
+        body: JSON.stringify({ date: viewDate, notes: teacherNotes }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -343,7 +406,7 @@ export default function BellringerEditPage() {
   async function uploadSlotImage(slot: number, file: File) {
     const formData = new FormData();
     formData.append('image', file);
-    formData.append('date', dateStr);
+    formData.append('date', viewDate);
     formData.append('slot', String(slot));
     try {
       const res = await fetch('/api/bellringers/upload-image', { method: 'POST', body: formData });
@@ -368,7 +431,7 @@ export default function BellringerEditPage() {
       const res = await fetch('/api/bellringers/remove-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: dateStr, slot }),
+        body: JSON.stringify({ date: viewDate, slot }),
       });
       if (res.ok) {
         setPrompts(prev => {
@@ -414,26 +477,94 @@ export default function BellringerEditPage() {
   const btnMutedSmall = 'px-2.5 py-1.5 text-xs bg-[#2a3a5c] text-[#a8b2d1] rounded-lg font-semibold hover:bg-[#344868] transition-all';
 
   return (
-    <div className="min-h-screen" style={{ background: '#1a1a2e' }}>
+    <div className="-m-4 md:-m-6 lg:-m-8 min-h-full" style={{ background: '#1a1a2e' }}>
       {/* Header */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 border-b border-[#2d3f5f]"
+      <header className="z-50 flex items-center px-4 py-2.5 border-b border-[#2d3f5f] gap-2 flex-wrap"
         style={{ background: '#16213e' }}>
-        <h1 className="text-xl font-bold tracking-wide text-white">
-          BELLRINGER &mdash; {dateStr}
-          {dirty && <span className="ml-2 text-xs font-normal text-[#a8b2d1]">(unsaved)</span>}
+        <h1 className="text-lg font-bold tracking-wide text-white whitespace-nowrap mr-1">
+          Bellringer
         </h1>
-        <div className="flex gap-2">
-          <button className={btn} onClick={saveBellringer} disabled={saving}>
-            {saving ? 'Saving...' : 'Save'}
+
+        {/* Date chip with arrows + assign/clear */}
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => stepDate(-1)}
+            className="p-1.5 text-[#6c7a96] hover:text-white transition-colors rounded-lg hover:bg-[#253352]"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            onClick={() => datePickerRef.current?.showPicker()}
+            className={`relative w-[130px] text-center px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+              dateAssigned
+                ? 'bg-[#2a4a3a] border border-[#4ade80] text-[#4ade80]'
+                : 'bg-[#253352] border border-[#2d3f5f] text-white hover:border-[#4ECDC4]'
+            }`}
+          >
+            {formatDateChip(viewDate)}
+            <input
+              ref={datePickerRef}
+              type="date"
+              value={viewDate}
+              onChange={e => { if (e.target.value) setViewDate(e.target.value); }}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+            />
+          </button>
+          <button
+            onClick={() => stepDate(1)}
+            className="p-1.5 text-[#6c7a96] hover:text-white transition-colors rounded-lg hover:bg-[#253352]"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          {viewDate !== localDateStr() && (
+            <button
+              onClick={() => setViewDate(localDateStr())}
+              className="ml-0.5 px-2 py-1 text-xs text-[#4ECDC4] bg-[#253352] border border-[#2d3f5f] rounded-lg hover:bg-[#344868] transition-colors"
+            >
+              Today
+            </button>
+          )}
+
+          {/* Assign / Clear — right next to the date chip */}
+          <button
+            className={`ml-1 px-3 py-1.5 text-sm font-semibold rounded-lg transition-all disabled:opacity-50 ${
+              dateAssigned
+                ? 'bg-[#2a3a5c] text-[#a8b2d1] hover:bg-[#344868]'
+                : 'bg-[#4ECDC4] text-[#1a1a2e] hover:brightness-110'
+            }`}
+            onClick={assignToDate}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : dateAssigned ? 'Reassign' : 'Assign'}
             {saving && <Spinner />}
           </button>
-          <button className={btn} onClick={saveAndDisplay} disabled={saving}>
+          {dateAssigned && (
+            <button
+              onClick={clearFromDate}
+              className="px-2.5 py-1.5 text-sm text-[#e74c3c] bg-[#2a3a5c] rounded-lg font-semibold hover:bg-[#3a2030] transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {dirty && <span className="text-xs text-[#a8b2d1] ml-1">(unsaved)</span>}
+
+        {/* Right side buttons */}
+        <div className="flex gap-1.5 ml-auto items-center shrink-0 flex-wrap">
+          <button className={btnMuted} onClick={clearAll}>Clear All</button>
+          <Link href="/bellringer/batch" className={btnMuted}>Batch</Link>
+          <Link href="/bellringer/library" className={btnMuted}>Library</Link>
+          <button
+            className="px-4 py-2 bg-accent-yellow text-[#111] rounded-lg font-bold text-sm hover:brightness-110 transition-all"
+            onClick={openDisplay}
+          >
             Display on TV
           </button>
-          <button className={btnMuted} onClick={clearAll}>Clear All</button>
-          <Link href="/bellringer/batch" className={btnMuted}>Batch Generate</Link>
-          <Link href="/bellringer/library" className={btnMuted}>Library</Link>
-          <Link href="/" className={btnMuted}>Dashboard</Link>
         </div>
       </header>
 
@@ -614,21 +745,6 @@ export default function BellringerEditPage() {
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-2.5 flex-wrap pt-5 border-t border-[#2d3f5f]">
-          <button className={`${btn} px-6 py-2.5`} onClick={saveBellringer} disabled={saving}>
-            {saving ? 'Saving...' : 'Save'}
-            {saving && <Spinner />}
-          </button>
-          <button className={`${btn} px-6 py-2.5`} onClick={saveAndDisplay} disabled={saving}>
-            Save & Display on TV
-          </button>
-          <button className={`${btn} px-6 py-2.5`} onClick={generateAll} disabled={generating !== null}>
-            {generating === 'all' ? 'Generating...' : 'Generate All'}
-            {generating === 'all' && <Spinner />}
-          </button>
-          <button className={`${btnMuted} px-6 py-2.5`} onClick={clearAll}>Clear All</button>
-        </div>
       </main>
 
       {/* Toast */}

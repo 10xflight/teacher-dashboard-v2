@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import MaterialGeneratorPanel from '@/components/MaterialGeneratorPanel';
+import { localDateStr } from '@/lib/task-helpers';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // ──────────────── Types ────────────────
 
@@ -52,11 +54,11 @@ function getMonday(dateStr: string): string {
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
-  return d.toISOString().split('T')[0];
+  return localDateStr(d);
 }
 
 function getCurrentMonday(): string {
-  return getMonday(new Date().toISOString().split('T')[0]);
+  return getMonday(localDateStr());
 }
 
 function getWeekDates(mondayStr: string): string[] {
@@ -65,7 +67,7 @@ function getWeekDates(mondayStr: string): string[] {
   for (let i = 0; i < 5; i++) {
     const current = new Date(d);
     current.setDate(d.getDate() + i);
-    dates.push(current.toISOString().split('T')[0]);
+    dates.push(localDateStr(current));
   }
   return dates;
 }
@@ -420,7 +422,7 @@ export default function LessonPlansPage() {
   function shiftWeek(offset: number) {
     const d = new Date(weekOf + 'T12:00:00');
     d.setDate(d.getDate() + offset * 7);
-    setWeekOf(d.toISOString().split('T')[0]);
+    setWeekOf(localDateStr(d));
   }
 
   // ──────────────── Derived Data ────────────────
@@ -450,8 +452,8 @@ export default function LessonPlansPage() {
         {/* Week Picker */}
         <div className="flex items-center gap-2">
           <button onClick={() => shiftWeek(-1)}
-            className="px-2 py-1 text-text-secondary hover:text-accent transition-colors">
-            &larr;
+            className="p-1 text-text-secondary hover:text-accent transition-colors rounded-lg hover:bg-hover">
+            <ChevronLeft size={18} />
           </button>
           <div className="flex items-center gap-2">
             <input
@@ -468,8 +470,8 @@ export default function LessonPlansPage() {
             </span>
           </div>
           <button onClick={() => shiftWeek(1)}
-            className="px-2 py-1 text-text-secondary hover:text-accent transition-colors">
-            &rarr;
+            className="p-1 text-text-secondary hover:text-accent transition-colors rounded-lg hover:bg-hover">
+            <ChevronRight size={18} />
           </button>
           <button onClick={() => setWeekOf(getCurrentMonday())}
             className="px-2 py-1 text-xs text-accent hover:underline">
@@ -734,12 +736,8 @@ export default function LessonPlansPage() {
                         <div key={`${date}-${cls.id}`}
                           className="rounded-lg bg-bg-secondary border border-border/50 p-3">
                           {/* Class header */}
-                          <div className="flex items-center gap-2 mb-2">
-                            <span
-                              className="w-2.5 h-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: cls.color || '#4ECDC4' }}
-                            />
-                            <span className="text-xs font-semibold text-text-primary">{cls.name}</span>
+                          <div className="flex items-baseline gap-2 mb-2">
+                            <span className="text-xs font-bold uppercase tracking-wide text-text-primary">{cls.name}</span>
                             {cls.periods && (
                               <span className="text-[0.6rem] text-text-muted">{cls.periods}</span>
                             )}

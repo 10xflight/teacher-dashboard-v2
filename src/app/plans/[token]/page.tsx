@@ -110,7 +110,7 @@ function groupByClass(activities: ActivityData[]): Record<string, ActivityData[]
 function getAdjacentWeek(weekOf: string, offset: number): string {
   const d = new Date(weekOf + 'T12:00:00');
   d.setDate(d.getDate() + offset * 7);
-  return d.toISOString().split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // -- Component --
@@ -515,22 +515,18 @@ export default function PublishedPlanPage() {
                   <h2 className="text-base font-bold text-gray-800">{dayLabel}</h2>
                 </div>
 
-                <div className="divide-y divide-gray-100">
-                  {Object.entries(byClass).map(([className, classActs]) => {
-                    const classColor = classActs[0]?.classes?.color || '#4ECDC4';
-
+                <div>
+                  {Object.entries(byClass).map(([className, classActs], classIdx) => {
                     return (
                       <div key={className} className="px-5 py-4">
+                        {/* Divider between classes (skip first) */}
+                        {classIdx > 0 && <div className="border-t border-gray-200 -mx-5 mb-4" />}
                         {/* Class header */}
-                        <div className="flex items-center gap-2 mb-3">
-                          <span
-                            className="w-3 h-3 rounded-full shrink-0"
-                            style={{ backgroundColor: classColor }}
-                          />
-                          <h3 className="text-sm font-semibold text-gray-700">{className}</h3>
+                        <div className="flex items-baseline gap-2 mb-3">
+                          <h3 className="text-base font-bold uppercase tracking-wide text-gray-700">{className}</h3>
                           {classActs[0]?.classes?.periods && (
                             <span className="text-xs text-gray-400">
-                              ({classActs[0].classes.periods})
+                              {classActs[0].classes.periods}
                             </span>
                           )}
                         </div>

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
 import { generateFullBellringer } from '@/lib/bellringer-generator';
+import { localDateStr } from '@/lib/task-helpers';
 
 function getWeekDates(mondayStr: string): string[] {
   const d = new Date(mondayStr + 'T12:00:00');
   const dates: string[] = [];
   for (let i = 0; i < 5; i++) {
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(localDateStr(d));
     d.setDate(d.getDate() + 1);
   }
   return dates;
@@ -17,7 +18,7 @@ function getMondayOfWeek(dateStr?: string): string {
   const day = d.getDay();
   const diff = day === 0 ? 1 : day === 6 ? 2 : (day === 1 ? 0 : -(day - 1));
   d.setDate(d.getDate() + diff);
-  return d.toISOString().split('T')[0];
+  return localDateStr(d);
 }
 
 export async function POST(request: NextRequest) {

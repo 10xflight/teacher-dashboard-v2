@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { localDateStr } from '@/lib/task-helpers';
 
 function getNextSchoolDay(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -8,7 +9,7 @@ function getNextSchoolDay(dateStr: string): string {
   while (d.getDay() === 0 || d.getDay() === 6) {
     d.setDate(d.getDate() + 1);
   }
-  return d.toISOString().split('T')[0];
+  return localDateStr(d);
 }
 
 export async function POST(

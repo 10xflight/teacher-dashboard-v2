@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   text TEXT NOT NULL,
   due_date TEXT,
   is_done BOOLEAN DEFAULT FALSE,
+  class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL,
+  created_date TEXT DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ
 );
@@ -151,6 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_bellringers_date ON bellringers(date);
 CREATE INDEX IF NOT EXISTS idx_bellringer_prompts_bellringer ON bellringer_prompts(bellringer_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_done ON tasks(is_done);
 CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(due_date);
+CREATE INDEX IF NOT EXISTS idx_tasks_class ON tasks(class_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_date ON calendar_events(date);
 CREATE INDEX IF NOT EXISTS idx_activities_date ON activities(date);
 CREATE INDEX IF NOT EXISTS idx_activities_class ON activities(class_id);

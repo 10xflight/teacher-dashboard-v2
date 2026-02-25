@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 // ──────────────── Types ────────────────
 
@@ -165,7 +166,7 @@ export default function StandardsCoveragePage() {
 
   function sortIcon(field: SortField) {
     if (sortField !== field) return null;
-    return sortDir === 'asc' ? ' \u2191' : ' \u2193';
+    return sortDir === 'asc' ? <ChevronUp size={12} className="inline ml-0.5" /> : <ChevronDown size={12} className="inline ml-0.5" />;
   }
 
   // ──────────────── Status Rendering ────────────────

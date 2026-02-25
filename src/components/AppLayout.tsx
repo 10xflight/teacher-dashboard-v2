@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import Navigation from './Navigation';
 import { ToastProvider } from './Toast';
 
@@ -29,9 +30,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h1 className="ml-3 text-base font-semibold text-accent">
+            <Link href="/" className="ml-3 text-base font-semibold text-accent hover:brightness-110 transition-all">
               Teacher Dashboard
-            </h1>
+            </Link>
           </header>
 
           {/* Scrollable content */}

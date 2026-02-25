@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import MaterialGeneratorPanel from '@/components/MaterialGeneratorPanel';
+import { localDateStr } from '@/lib/task-helpers';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CalendarEvent {
   id: number;
@@ -79,17 +81,17 @@ function formatDateDisplay(dateStr: string) {
 function shiftDate(dateStr: string, days: number): string {
   const d = new Date(dateStr + 'T12:00:00');
   d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export default function DayViewPage() {
   const params = useParams();
   const router = useRouter();
   const dateStr = params.date === 'today'
-    ? new Date().toISOString().split('T')[0]
+    ? localDateStr()
     : String(params.date);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   const [data, setData] = useState<DayData | null>(null);
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState<ClassInfo[]>([]);
@@ -187,8 +189,8 @@ export default function DayViewPage() {
       {/* Date Navigation */}
       <div className="flex items-center justify-between">
         <button onClick={() => goDate(-1)}
-          className="px-3 py-1.5 text-text-secondary hover:text-accent transition-colors text-lg">
-          &larr; Prev
+          className="flex items-center gap-1 px-3 py-1.5 text-text-secondary hover:text-accent transition-colors rounded-lg hover:bg-hover">
+          <ChevronLeft size={18} /> Prev
         </button>
         <div className="text-center">
           <h1 className="text-2xl font-bold text-text-primary">{formatDateDisplay(dateStr)}</h1>
@@ -197,8 +199,8 @@ export default function DayViewPage() {
           )}
         </div>
         <button onClick={() => goDate(1)}
-          className="px-3 py-1.5 text-text-secondary hover:text-accent transition-colors text-lg">
-          Next &rarr;
+          className="flex items-center gap-1 px-3 py-1.5 text-text-secondary hover:text-accent transition-colors rounded-lg hover:bg-hover">
+          Next <ChevronRight size={18} />
         </button>
       </div>
 

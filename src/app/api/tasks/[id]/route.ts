@@ -8,7 +8,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { is_done, text, due_date } = body;
+    const { is_done, text, due_date, class_id, created_date } = body;
 
     const updates: Record<string, unknown> = {};
 
@@ -23,6 +23,14 @@ export async function PATCH(
 
     if (due_date !== undefined) {
       updates.due_date = due_date;
+    }
+
+    if (class_id !== undefined) {
+      updates.class_id = class_id;
+    }
+
+    if (created_date !== undefined) {
+      updates.created_date = created_date;
     }
 
     if (Object.keys(updates).length === 0) {

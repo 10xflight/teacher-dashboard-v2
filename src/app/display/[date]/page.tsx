@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import type { Bellringer, BellringerPrompt, PromptCard } from '@/lib/types';
 import { TYPE_LABELS } from '@/lib/types';
+import { localDateStr } from '@/lib/task-helpers';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Card accent colors matching v1 display
 const CARD_COLORS = [
@@ -26,7 +28,7 @@ function splitEmojis(text: string): { instruction: string; emojis: string } {
 export default function DisplayPage() {
   const params = useParams();
   const dateStr = params.date === 'today'
-    ? new Date().toISOString().split('T')[0]
+    ? localDateStr()
     : String(params.date);
 
   const [bellringer, setBellringer] = useState<Bellringer | null>(null);
@@ -35,6 +37,8 @@ export default function DisplayPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const promptTextRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const actContentRef = useRef<HTMLDivElement | null>(null);
+  const actAnswerRef = useRef<HTMLDivElement | null>(null);
 
   const totalPages = 3;
 
@@ -146,28 +150,31 @@ export default function DisplayPage() {
         if (!el) return;
         const card = el.closest('[data-card]') as HTMLElement;
         if (!card) return;
-        if (promptCards[idx]?.type === 'emoji') return;
+        const isEmoji = promptCards[idx]?.type === 'emoji';
 
         const cardH = card.clientHeight;
         const typeLabel = card.querySelector('[data-type-label]') as HTMLElement;
         const labelH = typeLabel ? typeLabel.offsetHeight : 0;
+        const emojiEl = card.querySelector('[data-emoji-block]') as HTMLElement;
+        const emojiH = emojiEl ? emojiEl.offsetHeight : 0;
         const gap = 6;
         const padV = 32;
-        const maxH = cardH - labelH - gap - padV;
+        const maxH = cardH - labelH - emojiH - gap - padV;
 
         el.style.flex = 'none';
         el.style.overflow = 'visible';
 
-        let size = 3.2;
+        let size = isEmoji ? 2.0 : 3.2;
         el.style.fontSize = `${size}rem`;
         el.style.lineHeight = '1.3';
 
-        while (el.scrollHeight > maxH && size > 1.0) {
+        const minSize = isEmoji ? 0.9 : 1.0;
+        while (el.scrollHeight > maxH && size > minSize) {
           size -= 0.1;
           el.style.fontSize = `${size}rem`;
         }
 
-        el.style.flex = '1 1 0';
+        el.style.flex = isEmoji ? 'none' : '1 1 0';
         el.style.overflow = 'hidden';
       });
     };
@@ -175,6 +182,91 @@ export default function DisplayPage() {
     window.addEventListener('resize', fit);
     return () => { clearTimeout(timer); window.removeEventListener('resize', fit); };
   }, [promptCards, currentPage]);
+
+  // Auto-fit ACT question content to fill TV screen
+  useEffect(() => {
+    const fitAct = () => {
+      const container = actContentRef.current;
+      if (!container || currentPage !== 1) return;
+
+      const viewportH = window.innerHeight;
+      const pad = 24;
+      const maxH = viewportH - pad;
+
+      const questionEl = container.querySelector('[data-act-question]') as HTMLElement;
+      const choicesEl = container.querySelector('[data-act-choices]') as HTMLElement;
+      const skillEl = container.querySelector('[data-act-skill]') as HTMLElement;
+
+      if (!questionEl) { container.style.opacity = '1'; return; }
+
+      const applySize = (size: number) => {
+        questionEl.style.fontSize = `${size}rem`;
+        questionEl.style.lineHeight = '1.45';
+        if (skillEl) skillEl.style.fontSize = `${Math.max(1.2, size * 0.55)}rem`;
+        if (choicesEl) {
+          const choiceSize = size * 0.82;
+          const items = choicesEl.querySelectorAll('li');
+          items.forEach(li => {
+            (li as HTMLElement).style.fontSize = `${choiceSize}rem`;
+            (li as HTMLElement).style.padding = `${Math.max(10, size * 5)}px ${Math.max(18, size * 9)}px`;
+          });
+        }
+      };
+
+      // Start large and shrink until it fits
+      let size = 4.0;
+      const minSize = 1.0;
+      applySize(size);
+
+      while (container.scrollHeight > maxH && size > minSize) {
+        size -= 0.1;
+        applySize(size);
+      }
+
+      // Reveal after sizing is done
+      container.style.opacity = '1';
+    };
+
+    const timer = setTimeout(fitAct, 20);
+    window.addEventListener('resize', fitAct);
+    return () => { clearTimeout(timer); window.removeEventListener('resize', fitAct); };
+  }, [bellringer, currentPage]);
+
+  // Auto-fit ACT answer page
+  useEffect(() => {
+    const fitAnswer = () => {
+      const container = actAnswerRef.current;
+      if (!container || currentPage !== 2) return;
+
+      const viewportH = window.innerHeight;
+      const maxH = viewportH - 48;
+
+      const answerEl = container.querySelector('[data-act-answer]') as HTMLElement;
+      const ruleEl = container.querySelector('[data-act-rule]') as HTMLElement;
+
+      if (!answerEl) { container.style.opacity = '1'; return; }
+
+      const applySize = (size: number) => {
+        answerEl.style.fontSize = `${size}rem`;
+        if (ruleEl) ruleEl.style.fontSize = `${Math.max(1.2, size * 0.6)}rem`;
+      };
+
+      let size = 5.0;
+      applySize(size);
+
+      while (container.scrollHeight > maxH && size > 1.5) {
+        size -= 0.2;
+        applySize(size);
+      }
+
+      // Reveal after sizing is done
+      container.style.opacity = '1';
+    };
+
+    const timer = setTimeout(fitAnswer, 20);
+    window.addEventListener('resize', fitAnswer);
+    return () => { clearTimeout(timer); window.removeEventListener('resize', fitAnswer); };
+  }, [bellringer, currentPage, actAnswerText]);
 
   if (loading) {
     return (
@@ -237,8 +329,8 @@ export default function DisplayPage() {
               />
 
               {card.emojis && (
-                <div className="text-center flex-1 flex items-center justify-center min-h-0 overflow-hidden break-all"
-                  style={{ fontSize: '4rem', lineHeight: '1.2', letterSpacing: '10px' }}>
+                <div data-emoji-block className="text-center flex-1 flex items-center justify-center min-h-0 overflow-hidden break-all"
+                  style={{ fontSize: '4rem', lineHeight: '1.2', letterSpacing: '10px', minHeight: '4.5rem' }}>
                   {card.emojis}
                 </div>
               )}
@@ -252,24 +344,26 @@ export default function DisplayPage() {
         className={`w-screen h-screen flex-col ${currentPage === 1 ? 'flex' : 'hidden'}`}
         style={{ padding: '12px 60px 12px' }}
       >
-        <div className="flex-1 flex flex-col justify-center gap-4 overflow-hidden min-h-0">
-          <div className="text-xl text-center font-semibold shrink-0" style={{ color: '#4ECDC4' }}>
+        <div ref={actContentRef} className="flex-1 flex flex-col justify-center gap-4 overflow-hidden min-h-0" style={{ opacity: 0 }}>
+          <div data-act-skill className="text-center font-semibold shrink-0" style={{ color: '#4ECDC4', fontSize: '2rem' }}>
             {bellringer.act_skill}
           </div>
           <div
-            className="text-xl text-center mx-auto max-w-[920px] overflow-y-auto max-h-[33vh]"
-            style={{ lineHeight: '1.55' }}
+            data-act-question
+            className="text-center mx-auto max-w-[95%]"
+            style={{ fontSize: '3.5rem', lineHeight: '1.45' }}
             dangerouslySetInnerHTML={{ __html: bellringer.act_question || '' }}
           />
-          <ul className="flex flex-col gap-2.5 max-w-[850px] mx-auto w-full shrink-0">
+          <ul data-act-choices className="flex flex-col gap-3 max-w-[90%] mx-auto w-full shrink-0">
             {[bellringer.act_choice_a, bellringer.act_choice_b, bellringer.act_choice_c, bellringer.act_choice_d]
               .filter(Boolean)
               .map((choice, i) => (
                 <li
                   key={i}
-                  className="text-xl rounded-xl"
+                  className="rounded-xl"
                   style={{
-                    padding: '12px 22px',
+                    fontSize: '2.8rem',
+                    padding: '16px 30px',
                     background: 'rgba(255,255,255,0.06)',
                     border: '1px solid rgba(255,255,255,0.1)',
                     lineHeight: '1.35',
@@ -287,26 +381,30 @@ export default function DisplayPage() {
         className={`w-screen h-screen flex-col ${currentPage === 2 ? 'flex' : 'hidden'}`}
         style={{ padding: '12px 60px 12px' }}
       >
-        <div className="flex-1 flex flex-col justify-center items-center gap-6 overflow-hidden min-h-0 px-10">
+        <div ref={actAnswerRef} className="flex-1 flex flex-col justify-center items-center gap-8 overflow-hidden min-h-0 px-10" style={{ opacity: 0 }}>
           <div
-            className="text-4xl font-bold text-center rounded-2xl shrink-0"
-            style={{ background: '#FFFF00', color: '#111', padding: '18px 60px' }}
+            data-act-answer
+            className="font-bold text-center rounded-2xl shrink-0"
+            style={{ background: '#FFFF00', color: '#111', padding: '24px 80px', fontSize: '5rem' }}
           >
             {actAnswerText}
           </div>
-          <div
-            className="text-xl font-semibold text-center rounded-2xl max-w-[880px] shrink-0"
-            style={{ background: '#FFFF00', color: '#111', padding: '14px 40px' }}
-          >
-            {bellringer.act_rule}
-          </div>
+          {bellringer.act_rule && (
+            <div
+              data-act-rule
+              className="font-semibold text-center rounded-2xl max-w-[90%] shrink-0"
+              style={{ background: '#FFFF00', color: '#111', padding: '20px 50px', fontSize: '2.5rem' }}
+            >
+              {bellringer.act_rule}
+            </div>
+          )}
         </div>
       </div>
 
       {/* NAV ARROWS */}
       <button
         onClick={() => setCurrentPage(p => Math.max(p - 1, 0))}
-        className="fixed top-1/2 left-2 -translate-y-1/2 z-50 flex items-center justify-center text-3xl cursor-pointer rounded-lg select-none transition-all"
+        className="fixed top-1/2 left-2 -translate-y-1/2 z-50 flex items-center justify-center cursor-pointer rounded-xl select-none transition-all"
         style={{
           background: 'rgba(255,255,255,0.08)',
           border: '1px solid rgba(255,255,255,0.15)',
@@ -318,11 +416,11 @@ export default function DisplayPage() {
         onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
         onMouseLeave={e => { e.currentTarget.style.opacity = '0.35'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
       >
-        &#9664;
+        <ChevronLeft size={36} />
       </button>
       <button
         onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages - 1))}
-        className="fixed top-1/2 right-2 -translate-y-1/2 z-50 flex items-center justify-center text-3xl cursor-pointer rounded-lg select-none transition-all"
+        className="fixed top-1/2 right-2 -translate-y-1/2 z-50 flex items-center justify-center cursor-pointer rounded-xl select-none transition-all"
         style={{
           background: 'rgba(255,255,255,0.08)',
           border: '1px solid rgba(255,255,255,0.15)',
@@ -334,7 +432,7 @@ export default function DisplayPage() {
         onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
         onMouseLeave={e => { e.currentTarget.style.opacity = '0.35'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
       >
-        &#9654;
+        <ChevronRight size={36} />
       </button>
 
     </div>

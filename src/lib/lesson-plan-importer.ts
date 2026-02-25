@@ -148,7 +148,7 @@ function getWeekDates(weekOf: string): string[] {
   for (let i = 0; i < 5; i++) {
     const current = new Date(d);
     current.setDate(d.getDate() + i);
-    dates.push(current.toISOString().split('T')[0]);
+    dates.push(`${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`);
   }
   return dates;
 }

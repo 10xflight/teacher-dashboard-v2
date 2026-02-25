@@ -101,7 +101,8 @@ interface FullContext {
  * of the teacher's planning state, recent activities, and upcoming events.
  */
 export async function buildFullContext(options?: ContextOptions): Promise<FullContext> {
-  const today = options?.date || new Date().toISOString().split('T')[0];
+  const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = options?.date || localDate(new Date());
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const todayDate = new Date(today + 'T12:00:00');
   const dayOfWeek = dayNames[todayDate.getDay()];
@@ -113,18 +114,18 @@ export async function buildFullContext(options?: ContextOptions): Promise<FullCo
   monday.setDate(todayDate.getDate() + mondayOffset);
   const friday = new Date(monday);
   friday.setDate(monday.getDate() + 4);
-  const mondayStr = monday.toISOString().split('T')[0];
-  const fridayStr = friday.toISOString().split('T')[0];
+  const mondayStr = localDate(monday);
+  const fridayStr = localDate(friday);
 
   // Calculate date 7 days from today for upcoming events
   const nextWeek = new Date(todayDate);
   nextWeek.setDate(todayDate.getDate() + 7);
-  const nextWeekStr = nextWeek.toISOString().split('T')[0];
+  const nextWeekStr = localDate(nextWeek);
 
   // Calculate date 4 weeks ago for standards gap detection
   const fourWeeksAgo = new Date(todayDate);
   fourWeeksAgo.setDate(todayDate.getDate() - 28);
-  const fourWeeksAgoStr = fourWeeksAgo.toISOString().split('T')[0];
+  const fourWeeksAgoStr = localDate(fourWeeksAgo);
 
   // Run all queries in parallel for performance
   const [

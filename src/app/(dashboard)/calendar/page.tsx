@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import DayDetailModal from '@/components/DayDetailModal';
+import type { Task } from '@/lib/types';
+import { localDateStr } from '@/lib/task-helpers';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CalendarEvent {
   id: number;
@@ -28,12 +31,13 @@ export default function CalendarPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [newEvent, setNewEvent] = useState({ date: '', event_type: 'custom', title: '', notes: '' });
   const [toast, setToast] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
 
   const loadEvents = useCallback(async () => {
     const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
@@ -46,7 +50,18 @@ export default function CalendarPage() {
     } catch { /* ignore */ }
   }, [year, month]);
 
-  useEffect(() => { loadEvents(); }, [loadEvents]);
+  const loadTasks = useCallback(async () => {
+    const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+    const startDate = `${monthStr}-01`;
+    const endDate = `${monthStr}-31`;
+    try {
+      const res = await fetch(`/api/tasks?start=${startDate}&end=${endDate}`);
+      const data = await res.json();
+      setTasks([...(data.todo || []), ...(data.done || [])]);
+    } catch { /* ignore */ }
+  }, [year, month]);
+
+  useEffect(() => { loadEvents(); loadTasks(); }, [loadEvents, loadTasks]);
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
@@ -91,6 +106,14 @@ export default function CalendarPage() {
     eventsByDate[e.date].push(e);
   }
 
+  const tasksByDate: Record<string, Task[]> = {};
+  for (const t of tasks) {
+    if (t.due_date) {
+      if (!tasksByDate[t.due_date]) tasksByDate[t.due_date] = [];
+      tasksByDate[t.due_date].push(t);
+    }
+  }
+
   const inputCls = 'w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:border-accent focus:outline-none';
 
   return (
@@ -130,9 +153,9 @@ export default function CalendarPage() {
 
       {/* Month Navigation */}
       <div className="flex items-center justify-between">
-        <button onClick={prevMonth} className="px-3 py-1 text-text-secondary hover:text-accent transition-colors text-lg">&larr;</button>
+        <button onClick={prevMonth} className="p-2 text-text-secondary hover:text-accent transition-colors rounded-lg hover:bg-hover"><ChevronLeft size={20} /></button>
         <h2 className="text-xl font-bold text-text-primary">{MONTH_NAMES[month]} {year}</h2>
-        <button onClick={nextMonth} className="px-3 py-1 text-text-secondary hover:text-accent transition-colors text-lg">&rarr;</button>
+        <button onClick={nextMonth} className="p-2 text-text-secondary hover:text-accent transition-colors rounded-lg hover:bg-hover"><ChevronRight size={20} /></button>
       </div>
 
       {/* Calendar Grid */}
@@ -149,6 +172,7 @@ export default function CalendarPage() {
           {cells.map((day, i) => {
             const dateStr = day ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '';
             const dayEvents = dateStr ? eventsByDate[dateStr] || [] : [];
+            const dayTasks = dateStr ? (tasksByDate[dateStr] || []).filter(t => !t.is_done) : [];
             const isToday = dateStr === today;
 
             return (
@@ -175,6 +199,14 @@ export default function CalendarPage() {
                         </button>
                       </div>
                     ))}
+                    {dayTasks.map(task => (
+                      <div key={`task-${task.id}`} className="flex items-start gap-1 mb-0.5">
+                        <span className="inline-block w-1.5 h-1.5 rounded-sm bg-accent-yellow mt-1.5 shrink-0" />
+                        <span className="text-[0.65rem] text-text-secondary leading-tight flex-1 truncate" title={task.text}>
+                          {task.text}
+                        </span>
+                      </div>
+                    ))}
                   </>
                 )}
               </div>
@@ -187,8 +219,8 @@ export default function CalendarPage() {
       {selectedDate && (
         <DayDetailModal
           date={selectedDate}
-          onClose={() => { setSelectedDate(null); loadEvents(); }}
-          onDataChanged={loadEvents}
+          onClose={() => { setSelectedDate(null); loadEvents(); loadTasks(); }}
+          onDataChanged={() => { loadEvents(); loadTasks(); }}
         />
       )}
 

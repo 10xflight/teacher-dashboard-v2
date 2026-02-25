@@ -14,6 +14,8 @@ export interface Task {
   text: string;
   due_date: string | null;
   is_done: boolean;
+  class_id: number | null;
+  created_date: string | null;
   created_at: string;
   completed_at: string | null;
 }

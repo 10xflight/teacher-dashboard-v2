@@ -44,7 +44,7 @@ export async function GET(
       const diff = day === 0 ? -6 : 1 - day;
       const monday = new Date(d);
       monday.setDate(d.getDate() + diff);
-      const weekKey = monday.toISOString().split('T')[0];
+      const weekKey = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
       if (!weeks[weekKey]) weeks[weekKey] = [];
       weeks[weekKey]!.push(act);
     }

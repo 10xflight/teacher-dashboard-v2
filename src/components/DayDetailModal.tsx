@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import type { CalendarEvent, Task, Bellringer } from '@/lib/types';
+import type { CalendarEvent, Task, Bellringer, ClassInfo } from '@/lib/types';
 
 interface DayData {
   date: string;
@@ -32,7 +32,11 @@ export default function DayDetailModal({ date, onClose, onDataChanged }: DayDeta
   // Add task form
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
+  const [newTaskClassId, setNewTaskClassId] = useState<number | null>(null);
   const [addingTask, setAddingTask] = useState(false);
+
+  // Classes for dropdown
+  const [classes, setClasses] = useState<ClassInfo[]>([]);
 
   const fetchDayData = useCallback(async () => {
     setLoading(true);
@@ -54,6 +58,14 @@ export default function DayDetailModal({ date, onClose, onDataChanged }: DayDeta
   useEffect(() => {
     fetchDayData();
   }, [fetchDayData]);
+
+  // Load classes on mount
+  useEffect(() => {
+    fetch('/api/classes')
+      .then(r => r.json())
+      .then(setClasses)
+      .catch(() => {});
+  }, []);
 
   // Close on Escape key
   useEffect(() => {
@@ -130,18 +142,23 @@ export default function DayDetailModal({ date, onClose, onDataChanged }: DayDeta
     if (!newTaskText.trim() || addingTask) return;
     setAddingTask(true);
     try {
+      const body: Record<string, unknown> = {
+        text: newTaskText.trim(),
+        due_date: date,
+      };
+      if (newTaskClassId !== null) {
+        body.class_id = newTaskClassId;
+      }
       const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: newTaskText.trim(),
-          due_date: date,
-        }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         const newT = await res.json();
         setData(prev => prev ? { ...prev, tasks: [...prev.tasks, newT] } : prev);
         setNewTaskText('');
+        setNewTaskClassId(null);
         setShowAddTask(false);
         onDataChanged?.();
       }
@@ -391,7 +408,7 @@ export default function DayDetailModal({ date, onClose, onDataChanged }: DayDeta
 
                 {/* Add task form */}
                 {showAddTask && (
-                  <div className="rounded-lg bg-bg-secondary border border-border p-3 mb-3">
+                  <div className="rounded-lg bg-bg-secondary border border-border p-3 mb-3 space-y-2">
                     <div className="flex gap-2">
                       <input
                         autoFocus
@@ -402,6 +419,25 @@ export default function DayDetailModal({ date, onClose, onDataChanged }: DayDeta
                         placeholder="Task description..."
                         className="flex-1 px-3 py-1.5 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:border-accent focus:outline-none"
                       />
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <select
+                        value={newTaskClassId === null ? '' : String(newTaskClassId)}
+                        onChange={e => setNewTaskClassId(e.target.value ? parseInt(e.target.value) : null)}
+                        className="px-2 py-1.5 bg-bg-input border border-border rounded-lg text-text-primary text-xs focus:border-accent focus:outline-none"
+                      >
+                        <option value="">General</option>
+                        {classes.map(cls => (
+                          <option key={cls.id} value={cls.id}>{cls.name}</option>
+                        ))}
+                      </select>
+                      <div className="flex-1" />
+                      <button
+                        onClick={() => setShowAddTask(false)}
+                        className="px-3 py-1 text-xs text-text-muted hover:text-text-primary transition-colors"
+                      >
+                        Cancel
+                      </button>
                       <button
                         onClick={addTask}
                         disabled={!newTaskText.trim() || addingTask}

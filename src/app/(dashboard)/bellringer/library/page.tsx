@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { localDateStr } from '@/lib/task-helpers';
 
 interface LibraryPrompt {
   id: number;
@@ -106,14 +107,19 @@ export default function BellringerLibraryPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Bellringer Library</h1>
-          <p className="text-sm text-text-muted mt-1">{filtered.length} prompts</p>
+        <div className="flex items-center gap-3">
+          <Link href={`/bellringer/edit/${localDateStr()}`}
+            className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-hover transition-colors"
+            title="Back to Bellringer Generator">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Bellringer Library</h1>
+            <p className="text-sm text-text-muted mt-1">{filtered.length} prompts</p>
+          </div>
         </div>
-        <Link href={`/bellringer/edit/${new Date().toISOString().split('T')[0]}`}
-          className="px-4 py-2 bg-accent text-bg-primary rounded-lg font-semibold text-sm hover:brightness-110">
-          Edit Today
-        </Link>
       </div>
 
       {/* Search & Filter */}
@@ -175,7 +181,7 @@ export default function BellringerLibraryPage() {
               {/* Actions */}
               <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => { setSendModal(p); setSendDate(new Date().toISOString().split('T')[0]); setSendSlot(0); }}
+                  onClick={() => { setSendModal(p); setSendDate(localDateStr()); setSendSlot(0); }}
                   className="px-3 py-1 bg-accent/15 text-accent rounded-lg text-xs font-medium hover:bg-accent/25 transition-colors">
                   Send to Slot
                 </button>

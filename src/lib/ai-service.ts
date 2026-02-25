@@ -129,14 +129,26 @@ export function cleanJsonResponse(text: string): Record<string, unknown> {
       try { return JSON.parse(attempt); } catch { continue; }
     }
 
-    // Strategy 6: Regex rebuild
+    // Strategy 6: Regex rebuild — handles string, number, boolean, and null values
     try {
-      const pairs = [...cleaned.matchAll(/"(\w+)"\s*:\s*"((?:[^"\\]|\\.)*)"/g)];
-      if (pairs.length > 0) {
-        const obj: Record<string, string> = {};
-        for (const match of pairs) {
-          obj[match[1]] = match[2].replace(/\\n/g, '\n').replace(/\\\\n/g, '\n');
+      const obj: Record<string, unknown> = {};
+      // Match string values
+      const stringPairs = [...cleaned.matchAll(/"(\w+)"\s*:\s*"((?:[^"\\]|\\.)*)"/g)];
+      for (const match of stringPairs) {
+        obj[match[1]] = match[2].replace(/\\n/g, '\n').replace(/\\\\n/g, '\n');
+      }
+      // Match non-string values (numbers, booleans, null)
+      const nonStringPairs = [...cleaned.matchAll(/"(\w+)"\s*:\s*(true|false|null|-?\d+(?:\.\d+)?)\s*[,}\]]/g)];
+      for (const match of nonStringPairs) {
+        if (!(match[1] in obj)) {
+          const val = match[2];
+          if (val === 'true') obj[match[1]] = true;
+          else if (val === 'false') obj[match[1]] = false;
+          else if (val === 'null') obj[match[1]] = null;
+          else obj[match[1]] = Number(val);
         }
+      }
+      if (Object.keys(obj).length > 0) {
         return obj;
       }
     } catch { /* continue */ }
@@ -339,7 +351,7 @@ export async function buildContext() {
   const recentJournalTypes = (recent || []).map(r => r.journal_type).filter(Boolean) as string[];
 
   return {
-    today: today.toISOString().split('T')[0],
+    today: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`,
     dayOfWeek: dayNames[today.getDay()],
     recentActSkills,
     recentJournalTypes,

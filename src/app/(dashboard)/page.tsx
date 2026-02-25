@@ -3,13 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import DayDetailModal from '@/components/DayDetailModal';
-
-interface TaskItem {
-  id: number;
-  text: string;
-  due_date: string | null;
-  is_done: boolean;
-}
+import TaskTable from '@/components/TaskTable';
+import type { Task } from '@/lib/types';
+import { localDateStr } from '@/lib/task-helpers';
 
 interface CalendarEvent {
   id: number;
@@ -25,6 +21,7 @@ interface WeekDay {
   display: string;
   isToday: boolean;
   events: CalendarEvent[];
+  tasks: Task[];
   hasBellringer: boolean;
   bellringerApproved: boolean;
 }
@@ -34,7 +31,11 @@ function getWeekdays(count = 5): string[] {
   const d = new Date();
   while (days.length < count) {
     if (d.getDay() >= 1 && d.getDay() <= 5) {
-      days.push(d.toISOString().split('T')[0]);
+      // Use local date parts to avoid timezone shift
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      days.push(`${yyyy}-${mm}-${dd}`);
     }
     d.setDate(d.getDate() + 1);
   }
@@ -42,30 +43,113 @@ function getWeekdays(count = 5): string[] {
 }
 
 export default function Dashboard() {
-  const today = new Date().toISOString().split('T')[0];
-  const [weekdayDates] = useState(() => getWeekdays(5));
+  const today = localDateStr();
 
+  const [weekdayDates] = useState(() => getWeekdays(5));
   const [weekDays, setWeekDays] = useState<WeekDay[]>([]);
-  const [tasksTodo, setTasksTodo] = useState<TaskItem[]>([]);
-  const [tasksDone, setTasksDone] = useState<TaskItem[]>([]);
-  const [newTask, setNewTask] = useState('');
-  const [editingTask, setEditingTask] = useState<number | null>(null);
-  const [editText, setEditText] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const loadTasks = useCallback(async () => {
-    try {
-      const res = await fetch('/api/tasks');
-      const data = await res.json();
-      setTasksTodo(data.todo || []);
-      setTasksDone(data.done || []);
-    } catch { /* ignore */ }
-  }, []);
+  // Countdown state
+  const [gradingEnd, setGradingEnd] = useState<{ days: number; date: string; title: string } | null>(null);
+  const [semesterEnd, setSemesterEnd] = useState<{ days: number; date: string; title: string } | null>(null);
+  const [nextDayOff, setNextDayOff] = useState<{ date: string; title: string; days: number } | null>(null);
+
+  // Load countdowns
+  useEffect(() => {
+    async function loadCountdowns() {
+      try {
+        const futureEnd = new Date();
+        futureEnd.setMonth(futureEnd.getMonth() + 6);
+        const endStr = localDateStr(futureEnd);
+
+        const eventsRes = await fetch(`/api/calendar/events?start=${today}&end=${endStr}`);
+        const events: CalendarEvent[] = (await eventsRes.json()) || [];
+        const futureEvents = events.filter((e) => e.date > today)
+          .sort((a, b) => a.date.localeCompare(b.date));
+
+        const countSchoolDays = (endDate: string) => {
+          const end = new Date(endDate + 'T12:00:00');
+          const start = new Date();
+          start.setHours(12, 0, 0, 0);
+          let count = 0;
+          const d = new Date(start);
+          while (d <= end) {
+            const day = d.getDay();
+            if (day >= 1 && day <= 5) count++;
+            d.setDate(d.getDate() + 1);
+          }
+          return Math.max(0, count - 1);
+        };
+
+        const formatDate = (dateStr: string) => {
+          const d = new Date(dateStr + 'T12:00:00');
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        };
+
+        // Fuzzy match grading period end from calendar events
+        const gradingPatterns = /end\s+of\s+(\d+\w*\s+)?(nine\s*weeks|9\s*weeks|grading\s*period|marking\s*period|quarter)/i;
+        const semesterPatterns = /end\s+of\s+(\d+\w*\s+)?semester|last\s+day\s+of\s+(classes|school)/i;
+
+        const nextGrading = futureEvents.find(e => gradingPatterns.test(e.title || ''));
+        const nextSemester = futureEvents.find(e => semesterPatterns.test(e.title || ''));
+
+        if (nextGrading) {
+          setGradingEnd({
+            days: countSchoolDays(nextGrading.date),
+            date: formatDate(nextGrading.date),
+            title: nextGrading.title,
+          });
+        }
+
+        if (nextSemester) {
+          // Don't show semester if it's the same date as grading period
+          if (!nextGrading || nextSemester.date !== nextGrading.date) {
+            setSemesterEnd({
+              days: countSchoolDays(nextSemester.date),
+              date: formatDate(nextSemester.date),
+              title: nextSemester.title,
+            });
+          }
+        }
+
+        // Also check if grading period event title contains semester info
+        // e.g. "End of 2nd Nine Weeks / End of 1st Semester"
+        if (nextGrading && !nextSemester && semesterPatterns.test(nextGrading.title || '')) {
+          // The grading period event IS also a semester end — find the NEXT semester after it
+          const laterSemester = futureEvents.find(e => e.date > nextGrading.date && semesterPatterns.test(e.title || ''));
+          if (laterSemester) {
+            setSemesterEnd({
+              days: countSchoolDays(laterSemester.date),
+              date: formatDate(laterSemester.date),
+              title: laterSemester.title,
+            });
+          }
+        }
+
+        // Find next day off
+        const dayOffTypes = ['holiday', 'break', 'professional_day'];
+        const dayOffPatterns = /professional\s*day|in-?\s*service|no\s+school|no\s+students/i;
+        const nextOff = futureEvents.find(e =>
+          dayOffTypes.includes(e.event_type) ||
+          dayOffPatterns.test(e.title || '') ||
+          dayOffPatterns.test(e.notes || '')
+        );
+
+        if (nextOff) {
+          const offDate = new Date(nextOff.date + 'T12:00:00');
+          const todayDate = new Date(today + 'T12:00:00');
+          const diffMs = offDate.getTime() - todayDate.getTime();
+          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          setNextDayOff({ date: nextOff.date, title: nextOff.title, days: diffDays });
+        }
+      } catch { /* ignore */ }
+    }
+    loadCountdowns();
+  }, [today]);
 
   const loadWeekDays = useCallback(async () => {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    // Fetch all days in parallel instead of sequentially
     const results = await Promise.all(
       weekdayDates.map(async (dateStr) => {
         const d = new Date(dateStr + 'T12:00:00');
@@ -78,6 +162,7 @@ export default function Dashboard() {
             display: `${d.getMonth() + 1}/${d.getDate()}`,
             isToday: dateStr === today,
             events: data.events || [],
+            tasks: (data.tasks || []) as Task[],
             hasBellringer: !!data.bellringer,
             bellringerApproved: data.bellringer?.is_approved || false,
           };
@@ -88,6 +173,7 @@ export default function Dashboard() {
             display: `${d.getMonth() + 1}/${d.getDate()}`,
             isToday: dateStr === today,
             events: [],
+            tasks: [],
             hasBellringer: false,
             bellringerApproved: false,
           };
@@ -98,42 +184,7 @@ export default function Dashboard() {
     setWeekDays(results);
   }, [today, weekdayDates]);
 
-  useEffect(() => { loadTasks(); loadWeekDays(); }, [loadTasks, loadWeekDays]);
-
-  async function addTask() {
-    if (!newTask.trim()) return;
-    await fetch('/api/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: newTask.trim() }),
-    });
-    setNewTask('');
-    loadTasks();
-  }
-
-  async function toggleTask(id: number, done: boolean) {
-    await fetch(`/api/tasks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_done: done }),
-    });
-    loadTasks();
-  }
-
-  async function deleteTask(id: number) {
-    await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
-    loadTasks();
-  }
-
-  async function saveEdit(id: number) {
-    await fetch(`/api/tasks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: editText }),
-    });
-    setEditingTask(null);
-    loadTasks();
-  }
+  useEffect(() => { loadWeekDays(); }, [loadWeekDays]);
 
   const todayData = weekDays.find(d => d.isToday);
 
@@ -159,115 +210,96 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 5-Day Calendar Strip — shows calendar events on tiles */}
-      <div className="grid grid-cols-5 gap-3">
-        {weekDays.map(day => (
-          <button key={day.date} onClick={() => setSelectedDate(day.date)}
-            className={`rounded-xl p-3 border text-left transition-all hover:border-accent ${
-              day.isToday ? 'border-accent bg-bg-card' : 'border-border bg-bg-secondary'
-            }`}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-text-muted uppercase">{day.dayName}</span>
-              <span className={`text-sm font-bold ${day.isToday ? 'text-accent' : 'text-text-primary'}`}>{day.display}</span>
+      {/* Countdown Stats */}
+      {(gradingEnd || semesterEnd || nextDayOff) && (
+        <div className="flex flex-wrap gap-3">
+          {nextDayOff && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-card border border-border">
+              <span className="text-2xl font-bold text-accent-yellow">{nextDayOff.days}</span>
+              <span className="text-xs text-text-muted leading-tight">days to next day off<br/><span className="text-text-secondary">{new Date(nextDayOff.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} &middot; {nextDayOff.title}</span></span>
             </div>
-            {/* Bellringer indicator */}
-            {day.hasBellringer && (
-              <div className="flex items-center gap-1 mb-1">
-                <span className={`inline-block w-2 h-2 rounded-full ${day.bellringerApproved ? 'bg-accent-green' : 'bg-accent-yellow'}`} />
-                <span className="text-[0.6rem] text-text-muted">Bellringer</span>
-              </div>
-            )}
-            {/* Calendar events listed */}
-            {day.events.length > 0 ? (
-              <div className="space-y-0.5">
-                {day.events.slice(0, 3).map(evt => (
-                  <div key={evt.id} className="text-[0.6rem] text-text-secondary truncate leading-tight">
-                    {evt.title}
+          )}
+          {gradingEnd && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-card border border-border">
+              <span className="text-2xl font-bold text-accent">{gradingEnd.days}</span>
+              <span className="text-xs text-text-muted leading-tight">school days to grading period end<br/><span className="text-text-secondary">{gradingEnd.date} &middot; {gradingEnd.title}</span></span>
+            </div>
+          )}
+          {semesterEnd && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-card border border-border">
+              <span className="text-2xl font-bold text-accent">{semesterEnd.days}</span>
+              <span className="text-xs text-text-muted leading-tight">school days to semester end<br/><span className="text-text-secondary">{semesterEnd.date} &middot; {semesterEnd.title}</span></span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 5-Day Calendar Strip */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">This Week</h2>
+          <Link href="/calendar" className="text-xs text-accent hover:underline">
+            See full calendar
+          </Link>
+        </div>
+        <div className="grid grid-cols-5 gap-3">
+          {weekDays.map(day => {
+            const pendingTasks = day.tasks.filter(t => !t.is_done);
+            return (
+              <button key={day.date} onClick={() => setSelectedDate(day.date)}
+                className={`rounded-xl p-5 border text-left transition-all hover:border-accent flex flex-col ${
+                  day.isToday ? 'border-accent bg-bg-card' : 'border-border bg-bg-secondary'
+                }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-text-muted uppercase font-medium">{day.dayName}</span>
+                  <span className={`text-lg font-bold ${day.isToday ? 'text-accent' : 'text-text-primary'}`}>{day.display}</span>
+                </div>
+                {/* Bellringer indicator */}
+                {day.hasBellringer && (
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className={`inline-block w-2.5 h-2.5 rounded-full ${day.bellringerApproved ? 'bg-accent-green' : 'bg-accent-yellow'}`} />
+                    <span className="text-sm text-text-muted">Bellringer</span>
                   </div>
-                ))}
-                {day.events.length > 3 && (
-                  <div className="text-[0.6rem] text-text-muted">+{day.events.length - 3} more</div>
                 )}
-              </div>
-            ) : (
-              <div className="text-[0.6rem] text-text-muted mt-1">No events</div>
-            )}
-          </button>
-        ))}
+                {/* Calendar events */}
+                {day.events.length > 0 && (
+                  <div className="space-y-1">
+                    {day.events.slice(0, 2).map(evt => (
+                      <div key={evt.id} className="text-sm text-text-secondary truncate leading-snug">
+                        {evt.title}
+                      </div>
+                    ))}
+                    {day.events.length > 2 && (
+                      <div className="text-sm text-text-muted">+{day.events.length - 2} more</div>
+                    )}
+                  </div>
+                )}
+                {/* Tasks due */}
+                {pendingTasks.length > 0 && (
+                  <div className="space-y-1 mt-1">
+                    {pendingTasks.slice(0, 2).map(task => (
+                      <div key={task.id} className="flex items-center gap-1.5">
+                        <span className="inline-block w-2 h-2 rounded-sm bg-accent-yellow shrink-0" />
+                        <span className="text-sm text-text-secondary truncate leading-snug">{task.text}</span>
+                      </div>
+                    ))}
+                    {pendingTasks.length > 2 && (
+                      <div className="text-sm text-text-muted">+{pendingTasks.length - 2} tasks</div>
+                    )}
+                  </div>
+                )}
+                {day.events.length === 0 && pendingTasks.length === 0 && !day.hasBellringer && (
+                  <div className="text-sm text-text-muted mt-2">No events</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Tasks — shows ALL tasks (today's due tasks are highlighted) */}
-        <div className="rounded-xl bg-bg-card border border-border p-5">
-          <h2 className="text-lg font-semibold text-text-primary mb-3">Tasks</h2>
-
-          <div className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={newTask}
-              onChange={e => setNewTask(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addTask()}
-              placeholder="Add a task..."
-              className="flex-1 px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:border-accent focus:outline-none"
-            />
-            <button onClick={addTask}
-              className="px-4 py-2 bg-accent text-bg-primary rounded-lg font-semibold text-sm hover:brightness-110">
-              Add
-            </button>
-          </div>
-
-          <div className="space-y-1.5 mb-4">
-            {tasksTodo.map(task => (
-              <div key={task.id} className="flex items-center gap-2 group">
-                <button onClick={() => toggleTask(task.id, true)}
-                  className="w-5 h-5 rounded border border-border hover:border-accent shrink-0 transition-colors" />
-                {editingTask === task.id ? (
-                  <input autoFocus value={editText}
-                    onChange={e => setEditText(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(task.id); if (e.key === 'Escape') setEditingTask(null); }}
-                    onBlur={() => saveEdit(task.id)}
-                    className="flex-1 px-2 py-1 bg-bg-input border border-accent rounded text-text-primary text-sm focus:outline-none" />
-                ) : (
-                  <span className="flex-1 text-sm text-text-secondary cursor-pointer hover:text-text-primary"
-                    onClick={() => { setEditingTask(task.id); setEditText(task.text); }}>
-                    {task.text}
-                  </span>
-                )}
-                {task.due_date && (
-                  <span className={`text-xs ${task.due_date === today ? 'text-accent font-medium' : 'text-text-muted'}`}>
-                    {task.due_date === today ? 'Today' : task.due_date}
-                  </span>
-                )}
-                <button onClick={() => deleteTask(task.id)}
-                  className="text-accent-red opacity-0 group-hover:opacity-100 text-xs hover:underline transition-opacity">
-                  del
-                </button>
-              </div>
-            ))}
-            {tasksTodo.length === 0 && <p className="text-sm text-text-muted py-2">No tasks. Add one above!</p>}
-          </div>
-
-          {tasksDone.length > 0 && (
-            <>
-              <div className="text-xs text-text-muted uppercase tracking-wider mb-1.5">Completed</div>
-              <div className="space-y-1">
-                {tasksDone.map(task => (
-                  <div key={task.id} className="flex items-center gap-2 group">
-                    <button onClick={() => toggleTask(task.id, false)}
-                      className="w-5 h-5 rounded bg-accent-green shrink-0 flex items-center justify-center text-white text-xs">
-                      &#10003;
-                    </button>
-                    <span className="flex-1 text-sm text-text-muted line-through">{task.text}</span>
-                    <button onClick={() => deleteTask(task.id)}
-                      className="text-accent-red opacity-0 group-hover:opacity-100 text-xs hover:underline transition-opacity">
-                      del
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        {/* Tasks — managed by TaskTable */}
+        <TaskTable onTasksChanged={loadWeekDays} />
 
         {/* Right column */}
         <div className="space-y-4">
@@ -319,8 +351,8 @@ export default function Dashboard() {
       {selectedDate && (
         <DayDetailModal
           date={selectedDate}
-          onClose={() => { setSelectedDate(null); loadWeekDays(); loadTasks(); }}
-          onDataChanged={() => { loadWeekDays(); loadTasks(); }}
+          onClose={() => { setSelectedDate(null); loadWeekDays(); }}
+          onDataChanged={loadWeekDays}
         />
       )}
     </div>

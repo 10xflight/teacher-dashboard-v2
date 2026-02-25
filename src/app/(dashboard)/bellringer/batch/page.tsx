@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { localDateStr } from '@/lib/task-helpers';
 
 interface BatchResult {
   date: string;
@@ -24,7 +25,7 @@ function getMondayOfWeek(date?: Date): string {
   const diff = day === 0 ? 1 : day === 6 ? 2 : (day === 1 ? 0 : -(day - 1));
   const monday = new Date(d);
   monday.setDate(d.getDate() + diff);
-  return monday.toISOString().split('T')[0];
+  return localDateStr(monday);
 }
 
 function formatDate(dateStr: string): string {
@@ -85,15 +86,21 @@ function BatchBellringerContent() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Batch Bellringer Generator</h1>
-          <p className="text-sm text-text-muted mt-1">
-            Generate all 5 weekday bellringers at once
-          </p>
+        <div className="flex items-center gap-3">
+          <Link href={`/bellringer/edit/${localDateStr()}`}
+            className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-hover transition-colors"
+            title="Back to Bellringer Generator">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Batch Bellringer Generator</h1>
+            <p className="text-sm text-text-muted mt-1">
+              Generate all 5 weekday bellringers at once
+            </p>
+          </div>
         </div>
-        <Link href="/bellringer/edit/today" className="text-sm text-accent hover:underline">
-          Single Editor
-        </Link>
       </div>
 
       {/* Config */}
