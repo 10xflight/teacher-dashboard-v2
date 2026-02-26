@@ -238,14 +238,14 @@ export default function DisplayPage() {
     return () => { clearTimeout(timer); window.removeEventListener('resize', fitAct); };
   }, [bellringer, currentPage]);
 
-  // Auto-fit ACT answer page
+  // Auto-fit ACT answer page — same approach as question auto-fit
   useEffect(() => {
     const fitAnswer = () => {
       const container = actAnswerRef.current;
       if (!container || currentPage !== 2) return;
 
       const viewportH = window.innerHeight;
-      const maxH = viewportH - 48;
+      const maxH = viewportH - 24;
 
       const answerEl = container.querySelector('[data-act-answer]') as HTMLElement;
       const ruleEl = container.querySelector('[data-act-rule]') as HTMLElement;
@@ -254,15 +254,18 @@ export default function DisplayPage() {
 
       const applySize = (size: number) => {
         answerEl.style.fontSize = `${size}rem`;
-        answerEl.style.padding = `${Math.max(12, size * 3)}px ${Math.max(40, size * 8)}px`;
-        if (ruleEl) ruleEl.style.fontSize = `${Math.max(1.2, size * 0.4)}rem`;
+        answerEl.style.lineHeight = '1.45';
+        answerEl.style.padding = `${Math.max(16, size * 6)}px ${Math.max(40, size * 10)}px`;
+        if (ruleEl) ruleEl.style.fontSize = `${Math.max(1.2, size * 0.55)}rem`;
       };
 
-      let size = 16.0;
+      // Start at 6rem and shrink by 0.1rem — matches question sizing
+      let size = 6.0;
+      const minSize = 1.0;
       applySize(size);
 
-      while (container.scrollHeight > maxH && size > 2.0) {
-        size -= 0.3;
+      while (container.scrollHeight > maxH && size > minSize) {
+        size -= 0.1;
         applySize(size);
       }
 
