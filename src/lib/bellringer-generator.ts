@@ -14,30 +14,20 @@ PART 1 - JOURNAL PROMPTS: Generate 4 SHORT prompts, each a DIFFERENT type. Keep 
 - "'The only way out is through.' - Robert Frost. What does this mean to you?"
 - (for emoji type) "Tell a story using these emojis:" followed by 4-6 emojis
 
-PART 2 - ACT PREP: Generate ONE short grammar/mechanics/vocabulary question. IMPORTANT: The ACT question must be COMPLETELY INDEPENDENT of any teacher theme/notes — it is purely a grammar/mechanics skill question. Focus on:
-- Comma rules, apostrophes, semicolons, colons
-- Subject-verb agreement, pronoun agreement
-- Vocabulary in context
-- Sentence fragments / run-ons
+PART 2 - ACT PREP: Generate ONE ACT English-style grammar question. IMPORTANT: The ACT question must be COMPLETELY INDEPENDENT of any teacher theme/notes. It is purely a grammar/mechanics skill question.
 
-FORMAT: Write ONE sentence with an error. Wrap the part being tested in <b> tags. The four answer choices are REPLACEMENT OPTIONS for the bolded part. One choice fixes the error. One choice is "No change."
+SKILL AREAS (pick one, vary each time): commas (introductory phrases, appositives, compound sentences, restrictive/nonrestrictive), apostrophes (possessives vs plurals, its/it's), semicolons & colons, subject-verb agreement (each/neither/compound subjects), pronoun errors (ambiguous reference, who/whom, case), verb tense consistency, parallelism, dangling/misplaced modifiers, wordiness/redundancy, fragments/run-ons/comma splices, word choice (affect/effect, than/then, less/fewer, lie/lay).
 
-EXAMPLE:
-Sentence: Neither the students nor the teacher <b>were</b> ready for the pop quiz.
-A. was
-B. are
-C. has been
-D. No change
-Answer: A
-Rule: With neither/nor, the verb agrees with the nearest subject.
+ACT QUESTION RULES:
+- Write a realistic, natural-sounding sentence (like from an article about science, history, daily life) with ONE error
+- Wrap the tested part in <b> tags
+- 4 choices are SHORT replacement options for the bolded part only — NOT the whole sentence
+- One choice must be "No change" (this is sometimes correct — vary it!)
+- Vary which letter (A/B/C/D) is correct — NOT always A
+- Rule = one short, student-friendly sentence
+- NEVER put quotation marks around words in choices
 
-RULES:
-- Question is ONE sentence with <b>bolded</b> tested part
-- Choices are SHORT replacement options for the bold part (not full phrases)
-- Always include "No change" as one choice
-- Make sure the correct answer is actually correct
-- Rule = one short memorable sentence
-- NEVER put quotes around words
+ACT EXAMPLE: {"act_skill": "Commas with Introductory Phrases", "act_question": "After finishing the experiment <b>the students</b> recorded their observations.", "act_choices": "A. the students,\\nB. , the students\\nC. the students:\\nD. No change", "act_answer": "B", "act_rule": "Use a comma after an introductory phrase or clause."}
 
 JSON format:
 {
@@ -47,10 +37,10 @@ JSON format:
         {"journal_type": "emoji", "journal_prompt": "...", "journal_subprompt": "WRITE A PARAGRAPH IN YOUR JOURNAL!"},
         {"journal_type": "reflective", "journal_prompt": "...", "journal_subprompt": "WRITE A PARAGRAPH IN YOUR JOURNAL!"}
     ],
-    "act_skill": "Comma Rules",
-    "act_question": "The sentence with <b>tested part</b> bolded.",
-    "act_choices": "A. replacement1\\nB. replacement2\\nC. replacement3\\nD. No change",
-    "act_answer": "A",
+    "act_skill": "Skill Name",
+    "act_question": "Realistic sentence with <b>tested part</b> bolded.",
+    "act_choices": "A. option1\\nB. option2\\nC. option3\\nD. No change",
+    "act_answer": "B",
     "act_rule": "Short rule here."
 }`;
 
@@ -89,35 +79,49 @@ GOOD (short): "What would you title this photo? Why?"
 JSON format:
 {"journal_type": "image", "journal_prompt": "Short prompt here", "journal_subprompt": "WRITE A PARAGRAPH IN YOUR JOURNAL!"}`;
 
-const ACT_SYSTEM_PROMPT = `You generate ONE short ACT-style grammar/mechanics/vocabulary question for 9th/10th grade English.
+const ACT_SYSTEM_PROMPT = `You generate ONE ACT English test-style question for 9th/10th graders. These must look and feel like REAL ACT English questions — a natural-sounding sentence with a grammar/mechanics error that students must identify and fix.
 
-Focus areas (pick one):
-- Comma rules, apostrophes, semicolons, colons
-- Subject-verb agreement, pronoun agreement
-- Vocabulary in context
-- Sentence fragments / run-ons
+SKILL CATEGORIES (pick one, vary each time):
+1. COMMAS: introductory phrases, compound sentences, appositives, items in a series, coordinate adjectives, restrictive vs nonrestrictive clauses
+2. APOSTROPHES: possessives vs plurals, its/it's, whose/who's, their/they're/there
+3. SEMICOLONS & COLONS: joining independent clauses, before lists, semicolons vs commas
+4. SUBJECT-VERB AGREEMENT: compound subjects, indefinite pronouns (everyone/each/neither), inverted sentences, collective nouns
+5. PRONOUN ERRORS: ambiguous reference, pronoun-antecedent agreement, who/whom, case errors (me vs I)
+6. VERB TENSE: consistency, past perfect vs simple past, conditional mood
+7. PARALLELISM: items in a list, paired constructions (not only...but also)
+8. MODIFIERS: dangling modifiers, misplaced modifiers, adjective vs adverb
+9. WORDINESS & REDUNDANCY: eliminating unnecessary words, concise alternatives
+10. SENTENCE STRUCTURE: fragments, run-ons, comma splices, subordination vs coordination
+11. WORD CHOICE: affect/effect, than/then, accept/except, less/fewer, lie/lay
 
-FORMAT: Write ONE sentence with an error. Wrap the part being tested in <b> tags. The four answer choices are REPLACEMENT OPTIONS for the bolded part. One choice fixes the error. One choice is "No change."
+FORMAT: Write a realistic, natural-sounding sentence (the kind you'd find in a passage about science, history, art, daily life, etc.) with ONE error. Wrap the tested part in <b> tags. Give 4 answer choices that are REPLACEMENT OPTIONS for the bolded part only.
 
-EXAMPLE:
-Sentence: Neither the students nor the teacher <b>were</b> ready for the pop quiz.
-A. was
-B. are
-C. has been
-D. No change
-Answer: A
-Rule: With neither/nor, the verb agrees with the nearest subject.
+CRITICAL RULES:
+- The sentence must sound like it belongs in a real article or essay — not a contrived grammar exercise
+- Choices must be SHORT — just the replacement words/phrase for the bolded part, NOT the whole sentence
+- Exactly ONE choice must be correct
+- One choice must be "No change" (this is sometimes the correct answer! Vary it.)
+- The correct answer should NOT always be A — vary which letter is correct (A, B, C, or D)
+- The rule must be a SHORT, memorable, student-friendly explanation (one sentence)
+- NEVER put quotation marks around individual words in the choices
+- Do NOT restate the full sentence in choices
 
-RULES:
-- Question is ONE sentence with <b>bolded</b> tested part
-- Choices are SHORT replacement options for the bold part (not full phrases from the sentence)
-- Always include "No change" as one choice
-- Make sure the correct answer is actually correct
-- Rule = one short memorable sentence
-- NEVER put quotes around words
+EXAMPLE 1 (Commas):
+{"act_skill": "Commas with Introductory Phrases", "act_question": "After finishing the experiment <b>the students</b> recorded their observations in the lab notebook.", "act_choices": "A. the students,\\nB. , the students\\nC. the students:\\nD. No change", "act_answer": "B", "act_rule": "Use a comma after an introductory phrase or clause."}
 
-JSON format:
-{"act_skill": "Subject-Verb Agreement", "act_question": "The sentence with <b>tested part</b> bolded.", "act_choices": "A. replacement1\\nB. replacement2\\nC. replacement3\\nD. No change", "act_answer": "A", "act_rule": "Short rule here."}`;
+EXAMPLE 2 (Apostrophes):
+{"act_skill": "Apostrophes — Possessives", "act_question": "The <b>companies</b> new policy required all employees to complete safety training within their first week.", "act_choices": "A. company's\\nB. companies'\\nC. companys\\nD. No change", "act_answer": "A", "act_rule": "Use an apostrophe + s to show singular possession."}
+
+EXAMPLE 3 (Parallelism):
+{"act_skill": "Parallel Structure", "act_question": "The coach told the team to stay focused, work together, and <b>they should keep a positive attitude.</b>", "act_choices": "A. keeping a positive attitude.\\nB. maintain a positive attitude.\\nC. a positive attitude should be kept.\\nD. No change", "act_answer": "B", "act_rule": "Items in a series must follow the same grammatical pattern."}
+
+EXAMPLE 4 (Subject-Verb Agreement):
+{"act_skill": "Subject-Verb Agreement", "act_question": "Each of the paintings in the gallery <b>were</b> created by a local artist during the summer festival.", "act_choices": "A. was\\nB. have been\\nC. are\\nD. No change", "act_answer": "A", "act_rule": "\\\"Each\\\" is always singular and takes a singular verb."}
+
+EXAMPLE 5 (Wordiness):
+{"act_skill": "Concision", "act_question": "The mayor <b>made the decision to implement</b> new recycling guidelines for the entire city.", "act_choices": "A. decided to implement\\nB. decided on implementing\\nC. made a decision about implementing\\nD. No change", "act_answer": "A", "act_rule": "Replace wordy phrases with concise alternatives when possible."}
+
+Generate ONE question in valid JSON. Do NOT wrap in markdown. Vary the skill from the examples above.`;
 
 // ============================================================
 // Helper to get model or null (for provider routing)

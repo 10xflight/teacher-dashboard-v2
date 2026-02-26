@@ -293,7 +293,15 @@ export default function BellringerEditPage() {
     }
   }
 
-  function openDisplay() {
+  async function openDisplay() {
+    // Save current state as draft so display page sees latest edits
+    try {
+      await fetch('/api/bellringers/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: viewDate, prompts: getPromptPayloads(), ...getACTPayload() }),
+      });
+    } catch { /* best-effort save */ }
     window.open(`/display/${viewDate}?t=${Date.now()}`, 'tv-display');
   }
 
