@@ -254,14 +254,15 @@ export default function DisplayPage() {
 
       const applySize = (size: number) => {
         answerEl.style.fontSize = `${size}rem`;
-        if (ruleEl) ruleEl.style.fontSize = `${Math.max(1.2, size * 0.6)}rem`;
+        answerEl.style.padding = `${Math.max(12, size * 3)}px ${Math.max(40, size * 8)}px`;
+        if (ruleEl) ruleEl.style.fontSize = `${Math.max(1.2, size * 0.4)}rem`;
       };
 
-      let size = 10.0;
+      let size = 16.0;
       applySize(size);
 
-      while (container.scrollHeight > maxH && size > 1.5) {
-        size -= 0.2;
+      while (container.scrollHeight > maxH && size > 2.0) {
+        size -= 0.3;
         applySize(size);
       }
 
@@ -387,19 +388,19 @@ export default function DisplayPage() {
         className={`w-screen h-screen flex-col ${currentPage === 2 ? 'flex' : 'hidden'}`}
         style={{ padding: '12px 60px 12px' }}
       >
-        <div ref={actAnswerRef} className="flex-1 flex flex-col justify-center items-center gap-8 overflow-hidden min-h-0 px-10" style={{ opacity: 0 }}>
+        <div ref={actAnswerRef} className="flex-1 flex flex-col justify-center items-center gap-5 overflow-hidden min-h-0 px-4" style={{ opacity: 0 }}>
           <div
             data-act-answer
             className="font-bold text-center rounded-2xl shrink-0"
-            style={{ background: '#FFFF00', color: '#111', padding: '24px 80px', fontSize: '5rem' }}
+            style={{ background: '#FFFF00', color: '#111', padding: '20px 60px', fontSize: '5rem' }}
           >
             {actAnswerText}
           </div>
           {bellringer.act_rule && (
             <div
               data-act-rule
-              className="font-semibold text-center rounded-2xl max-w-[90%] shrink-0"
-              style={{ background: '#FFFF00', color: '#111', padding: '20px 50px', fontSize: '2.5rem' }}
+              className="font-semibold text-center rounded-2xl max-w-[95%] shrink-0"
+              style={{ background: '#FFFF00', color: '#111', padding: '16px 40px', fontSize: '2rem' }}
             >
               {bellringer.act_rule}
             </div>
