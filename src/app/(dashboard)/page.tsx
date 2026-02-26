@@ -203,10 +203,10 @@ export default function Dashboard() {
             className="px-4 py-2 bg-accent text-bg-primary rounded-lg font-semibold text-sm hover:brightness-110">
             Edit Bellringer
           </Link>
-          <Link href={`/display/${today}`}
+          <a href={`/display/${today}`} target="_blank" rel="noopener noreferrer"
             className="px-4 py-2 bg-accent-yellow text-[#111] rounded-lg font-bold text-sm hover:brightness-110">
             Display on TV
-          </Link>
+          </a>
         </div>
       </div>
 
@@ -313,7 +313,7 @@ export default function Dashboard() {
                   {todayData.bellringerApproved ? 'Approved & Ready' : 'Draft - needs review'}
                 </span>
                 <Link href={`/bellringer/edit/${today}`} className="text-sm text-accent hover:underline ml-auto">Edit</Link>
-                <Link href={`/display/${today}`} className="text-sm text-accent-yellow hover:underline">Display</Link>
+                <a href={`/display/${today}`} target="_blank" rel="noopener noreferrer" className="text-sm text-accent-yellow hover:underline">Display</a>
               </div>
             ) : (
               <div className="flex items-center gap-3">
@@ -330,17 +330,25 @@ export default function Dashboard() {
             <div className="grid grid-cols-3 gap-2">
               {[
                 { href: `/bellringer/edit/${today}`, icon: '\u270E', label: 'Edit Bellringer' },
-                { href: `/display/${today}`, icon: '\uD83D\uDCFA', label: 'TV Display' },
+                { href: `/display/${today}`, icon: '\uD83D\uDCFA', label: 'TV Display', newTab: true },
                 { href: '/lesson-plans', icon: '\uD83D\uDCC4', label: 'Lesson Plans' },
                 { href: '/bellringer/batch', icon: '\uD83D\uDCE6', label: 'Batch Bellringers' },
                 { href: '/calendar', icon: '\uD83D\uDCC5', label: 'Calendar' },
                 { href: '/settings', icon: '\u2699', label: 'Settings' },
               ].map(link => (
-                <Link key={link.href} href={link.href}
-                  className="block p-3 rounded-lg bg-bg-input border border-border hover:border-accent text-center transition-colors">
-                  <div className="text-2xl mb-1">{link.icon}</div>
-                  <div className="text-sm text-text-secondary">{link.label}</div>
-                </Link>
+                link.newTab ? (
+                  <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer"
+                    className="block p-3 rounded-lg bg-bg-input border border-border hover:border-accent text-center transition-colors">
+                    <div className="text-2xl mb-1">{link.icon}</div>
+                    <div className="text-sm text-text-secondary">{link.label}</div>
+                  </a>
+                ) : (
+                  <Link key={link.href} href={link.href}
+                    className="block p-3 rounded-lg bg-bg-input border border-border hover:border-accent text-center transition-colors">
+                    <div className="text-2xl mb-1">{link.icon}</div>
+                    <div className="text-sm text-text-secondary">{link.label}</div>
+                  </Link>
+                )
               ))}
             </div>
           </div>

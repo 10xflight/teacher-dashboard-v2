@@ -268,10 +268,12 @@ export default function DayViewPage() {
                 {b ? 'Edit Bellringer' : 'Create Bellringer'}
               </Link>
               {b && (
-                <Link href={`/display/${dateStr}`}
+                <a href={`/display/${dateStr}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="px-3 py-1.5 bg-accent-yellow text-[#111] rounded-lg font-bold text-xs hover:brightness-110">
                   Display on TV
-                </Link>
+                </a>
               )}
             </div>
           </div>

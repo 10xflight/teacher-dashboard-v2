@@ -282,12 +282,14 @@ export default function DayDetailModal({ date, onClose, onDataChanged }: DayDeta
                   >
                     Edit Bellringer
                   </Link>
-                  <Link
+                  <a
                     href={`/display/${date}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-xs font-medium px-3 py-1.5 rounded-lg bg-bg-input text-text-secondary hover:bg-hover hover:text-text-primary transition-colors"
                   >
                     TV Display
-                  </Link>
+                  </a>
                 </div>
               </section>
 

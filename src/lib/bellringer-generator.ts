@@ -14,7 +14,7 @@ PART 1 - JOURNAL PROMPTS: Generate 4 SHORT prompts, each a DIFFERENT type. Keep 
 - "'The only way out is through.' - Robert Frost. What does this mean to you?"
 - (for emoji type) "Tell a story using these emojis:" followed by 4-6 emojis
 
-PART 2 - ACT PREP: Generate ONE short grammar/mechanics/vocabulary question. Focus on:
+PART 2 - ACT PREP: Generate ONE short grammar/mechanics/vocabulary question. IMPORTANT: The ACT question must be COMPLETELY INDEPENDENT of any teacher theme/notes — it is purely a grammar/mechanics skill question. Focus on:
 - Comma rules, apostrophes, semicolons, colons
 - Subject-verb agreement, pronoun agreement
 - Vocabulary in context

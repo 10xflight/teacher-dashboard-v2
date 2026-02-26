@@ -143,6 +143,12 @@ export default function DisplayPage() {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
+  // Reset opacity when page changes to prevent flash during auto-fit
+  useEffect(() => {
+    if (actContentRef.current) actContentRef.current.style.opacity = '0';
+    if (actAnswerRef.current) actAnswerRef.current.style.opacity = '0';
+  }, [currentPage]);
+
   // Auto-fit text for prompt cards
   useEffect(() => {
     const fit = () => {
@@ -214,7 +220,7 @@ export default function DisplayPage() {
       };
 
       // Start large and shrink until it fits
-      let size = 4.0;
+      let size = 6.0;
       const minSize = 1.0;
       applySize(size);
 
@@ -251,7 +257,7 @@ export default function DisplayPage() {
         if (ruleEl) ruleEl.style.fontSize = `${Math.max(1.2, size * 0.6)}rem`;
       };
 
-      let size = 5.0;
+      let size = 10.0;
       applySize(size);
 
       while (container.scrollHeight > maxH && size > 1.5) {

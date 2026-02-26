@@ -378,7 +378,7 @@ export default function BellringerEditPage() {
       const res = await fetch('/api/bellringers/generate-act', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: viewDate, notes: teacherNotes }),
+        body: JSON.stringify({ date: viewDate }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -581,7 +581,7 @@ export default function BellringerEditPage() {
             className={`${inputCls} min-h-[60px] resize-y`}
           />
           <div className="flex gap-2 mt-2 items-center">
-            <button className={btn} onClick={generateAll} disabled={generating !== null}>
+            <button className={btn} onClick={generateAll} disabled={generating === 'all'}>
               {generating === 'all' ? 'Generating...' : 'Generate All from Idea'}
               {generating === 'all' && <Spinner />}
             </button>
@@ -651,7 +651,7 @@ export default function BellringerEditPage() {
                 <button
                   className={btnSmall}
                   onClick={() => regenSlot(i)}
-                  disabled={generating !== null}
+                  disabled={generating === `slot-${i}`}
                 >
                   {generating === `slot-${i}` ? 'Generating...' : 'Regenerate'}
                   {generating === `slot-${i}` && <Spinner />}
@@ -672,7 +672,7 @@ export default function BellringerEditPage() {
           <button
             className={btnSmall}
             onClick={regenACT}
-            disabled={generating !== null}
+            disabled={generating === 'act'}
           >
             {generating === 'act' ? 'Generating...' : 'Regenerate ACT'}
             {generating === 'act' && <Spinner />}
