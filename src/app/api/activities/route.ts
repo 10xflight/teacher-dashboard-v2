@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('activities')
-      .select('*, classes(name, periods, color)')
+      .select('*, classes(name, periods, color), activity_standards(standard_id, tagged_by, standards(code, description, strand))')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
 

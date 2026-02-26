@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import MaterialGeneratorPanel from '@/components/MaterialGeneratorPanel';
 import { localDateStr } from '@/lib/task-helpers';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, History, Tag, Lightbulb, Plus, RefreshCw } from 'lucide-react';
 
 // ──────────────── Types ────────────────
 
@@ -20,6 +20,12 @@ interface ClassInfo {
   color: string | null;
 }
 
+interface ActivityStandardData {
+  standard_id: number;
+  tagged_by: string;
+  standards: { code: string; description: string; strand: string | null } | null;
+}
+
 interface ActivityData {
   id: number;
   class_id: number;
@@ -33,6 +39,7 @@ interface ActivityData {
   is_done: boolean;
   is_graded: boolean;
   classes: { name: string; periods: string | null; color: string | null } | null;
+  activity_standards?: ActivityStandardData[];
 }
 
 interface LessonPlanData {
@@ -47,6 +54,14 @@ interface LessonPlanData {
   updated_at: string | null;
 }
 
+interface PlanHistoryItem {
+  id: number;
+  week_of: string;
+  status: string;
+  message_count: number;
+  created_at: string;
+}
+
 // ──────────────── Helpers ────────────────
 
 function getMonday(dateStr: string): string {
@@ -59,6 +74,12 @@ function getMonday(dateStr: string): string {
 
 function getCurrentMonday(): string {
   return getMonday(localDateStr());
+}
+
+function getNextMonday(mondayStr: string): string {
+  const d = new Date(mondayStr + 'T12:00:00');
+  d.setDate(d.getDate() + 7);
+  return localDateStr(d);
 }
 
 function getWeekDates(mondayStr: string): string[] {
@@ -136,6 +157,31 @@ export default function LessonPlansPage() {
   // State: material generator panel
   const [materialActivity, setMaterialActivity] = useState<ActivityData | null>(null);
 
+  // State: chat history dropdown
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [planHistory, setPlanHistory] = useState<PlanHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // State: tag standards
+  const [tagging, setTagging] = useState(false);
+  const [tagProgress, setTagProgress] = useState('');
+
+  // State: suggest standards
+  const [suggesting, setSuggesting] = useState(false);
+
+  // State: per-activity regeneration
+  const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
+
+  // State: standard detail popup
+  const [standardPopup, setStandardPopup] = useState<{
+    code: string;
+    description: string;
+    strand: string | null;
+    hitCount: number;
+    activities: { id: number; title: string; date: string | null; className: string }[];
+  } | null>(null);
+  const [standardPopupLoading, setStandardPopupLoading] = useState(false);
+
   // ──────────────── Data Loading ────────────────
 
   const loadClasses = useCallback(async () => {
@@ -193,6 +239,30 @@ export default function LessonPlansPage() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
+
+  // ──────────────── Chat History ────────────────
+
+  async function loadHistory() {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch('/api/lesson-plans?list=true');
+      if (res.ok) {
+        setPlanHistory(await res.json());
+      }
+    } catch { /* ignore */ }
+    setHistoryLoading(false);
+  }
+
+  function toggleHistory() {
+    const newOpen = !historyOpen;
+    setHistoryOpen(newOpen);
+    if (newOpen) loadHistory();
+  }
+
+  function navigateToWeek(newWeekOf: string) {
+    setWeekOf(newWeekOf);
+    setHistoryOpen(false);
+  }
 
   // ──────────────── Plan CRUD ────────────────
 
@@ -283,6 +353,132 @@ export default function LessonPlansPage() {
     }
 
     setParsing(false);
+  }
+
+  // ──────────────── Tag Standards ────────────────
+
+  async function tagStandards() {
+    if (!plan || tagging || activities.length === 0) return;
+    setTagging(true);
+    setTagProgress('Tagging activities with standards...');
+
+    try {
+      const res = await fetch('/api/lesson-plans/tag-standards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_plan_id: plan.id }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const tagged = data.results?.filter((r: { codes: string[] }) => r.codes.length > 0).length || 0;
+        setTagProgress(`Tagged ${tagged} of ${data.results?.length || 0} activities`);
+        // Reload activities to pick up standard badges
+        await loadActivities();
+      } else {
+        const err = await res.json();
+        setTagProgress(`Error: ${err.error}`);
+      }
+    } catch {
+      setTagProgress('Network error while tagging.');
+    }
+
+    setTimeout(() => {
+      setTagging(false);
+      setTagProgress('');
+    }, 3000);
+  }
+
+  // ──────────────── Suggest Standards ────────────────
+
+  async function suggestStandards() {
+    if (!plan || suggesting || activities.length === 0) return;
+    setSuggesting(true);
+
+    try {
+      const res = await fetch('/api/lesson-plans/suggest-standards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_plan_id: plan.id }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const suggestion: ChatMessage = {
+          role: 'assistant',
+          content: data.suggestions,
+        };
+
+        // Add to chat messages
+        const updatedMessages = [...chatMessages, suggestion];
+        setChatMessages(updatedMessages);
+
+        // Save updated brainstorm_history
+        await fetch(`/api/lesson-plans/${plan.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ brainstorm_history: updatedMessages }),
+        });
+
+        // Switch to chat panel on mobile so user sees the suggestion
+        setActivePanel('chat');
+      } else {
+        const err = await res.json();
+        alert(`Suggest failed: ${err.error}`);
+      }
+    } catch {
+      alert('Network error while suggesting standards.');
+    }
+
+    setSuggesting(false);
+  }
+
+  // ──────────────── Regenerate Activity ────────────────
+
+  async function regenerateActivity(activityId: number) {
+    if (regeneratingId !== null) return;
+    setRegeneratingId(activityId);
+
+    try {
+      const res = await fetch(`/api/activities/${activityId}/regenerate`, {
+        method: 'POST',
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        setActivities(prev => prev.map(a => a.id === activityId ? { ...a, ...updated } : a));
+      } else {
+        const err = await res.json();
+        alert(`Regenerate failed: ${err.error}`);
+      }
+    } catch {
+      alert('Network error while regenerating.');
+    }
+
+    setRegeneratingId(null);
+  }
+
+  // ──────────────── Standard Detail Popup ────────────────
+
+  async function openStandardPopup(code: string, description: string, strand: string | null) {
+    setStandardPopupLoading(true);
+    setStandardPopup({ code, description, strand, hitCount: 0, activities: [] });
+
+    try {
+      const res = await fetch(`/api/standards/detail?code=${encodeURIComponent(code)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setStandardPopup({
+          code,
+          description,
+          strand,
+          hitCount: data.hit_count ?? 0,
+          activities: data.activities ?? [],
+        });
+      }
+    } catch { /* show what we have */ }
+
+    setStandardPopupLoading(false);
   }
 
   // ──────────────── Activity Actions ────────────────
@@ -505,6 +701,46 @@ export default function LessonPlansPage() {
           >
             Set up Bellringers &rarr;
           </Link>
+          {/* Tag Standards button */}
+          <button
+            onClick={tagStandards}
+            disabled={!plan || tagging || activities.length === 0}
+            className="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 rounded-lg text-xs font-medium hover:bg-indigo-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            title="Auto-tag all activities with standards">
+            {tagging ? (
+              <>
+                <span className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                Tagging...
+              </>
+            ) : (
+              <>
+                <Tag size={12} />
+                Tag Standards
+              </>
+            )}
+          </button>
+          {/* Suggest Standards button */}
+          <button
+            onClick={suggestStandards}
+            disabled={!plan || suggesting || activities.length === 0}
+            className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            title="AI suggests activities to fill standards gaps">
+            {suggesting ? (
+              <>
+                <span className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Lightbulb size={12} />
+                Suggest
+              </>
+            )}
+          </button>
+          {/* Tag progress indicator */}
+          {tagProgress && (
+            <span className="text-[0.65rem] text-text-muted">{tagProgress}</span>
+          )}
           {saveStatus === 'saving' && <span className="text-text-muted">Saving...</span>}
           {saveStatus === 'saved' && <span className="text-text-secondary">Saved!</span>}
           {saveStatus === 'error' && <span className="text-accent-red">Save failed</span>}
@@ -547,7 +783,19 @@ export default function LessonPlansPage() {
           }`}>
             {/* Chat header */}
             <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-text-primary">AI Brainstorm</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-text-primary">AI Brainstorm</h2>
+                <button
+                  onClick={toggleHistory}
+                  className={`p-1 rounded transition-colors ${
+                    historyOpen
+                      ? 'text-accent bg-accent/10'
+                      : 'text-text-muted hover:text-text-secondary hover:bg-hover'
+                  }`}
+                  title="Chat history">
+                  <History size={14} />
+                </button>
+              </div>
               {chatMessages.length > 0 && (
                 <button
                   onClick={generatePlan}
@@ -564,6 +812,59 @@ export default function LessonPlansPage() {
                 </button>
               )}
             </div>
+
+            {/* Chat history dropdown */}
+            {historyOpen && (
+              <div className="border-b border-border bg-bg-secondary max-h-[200px] overflow-y-auto">
+                {historyLoading ? (
+                  <div className="flex justify-center py-4">
+                    <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : planHistory.length === 0 ? (
+                  <div className="px-4 py-3 text-xs text-text-muted text-center">
+                    No past sessions yet.
+                  </div>
+                ) : (
+                  <div className="py-1">
+                    {planHistory.map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => navigateToWeek(item.week_of)}
+                        className={`w-full px-4 py-2 flex items-center gap-2 text-left hover:bg-hover transition-colors ${
+                          item.week_of === weekOf ? 'bg-accent/10 border-l-2 border-accent' : ''
+                        }`}>
+                        <span className={`flex-1 text-xs ${
+                          item.week_of === weekOf ? 'text-accent font-semibold' : 'text-text-secondary'
+                        }`}>
+                          {formatWeekLabel(item.week_of)}
+                        </span>
+                        <span className="text-[0.6rem] text-text-muted">
+                          {item.message_count} msg{item.message_count !== 1 ? 's' : ''}
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[0.55rem] font-medium ${
+                          item.status === 'published'
+                            ? 'bg-accent-green/20 text-accent-green'
+                            : 'bg-bg-card border border-border text-text-muted'
+                        }`}>
+                          {item.status === 'published' ? 'Published' : 'Draft'}
+                        </span>
+                      </button>
+                    ))}
+                    {/* New Week button */}
+                    <button
+                      onClick={() => {
+                        // Find the latest week in history, go one week after
+                        const latestWeek = planHistory.length > 0 ? planHistory[0].week_of : weekOf;
+                        navigateToWeek(getNextMonday(latestWeek));
+                      }}
+                      className="w-full px-4 py-2 flex items-center gap-2 text-left hover:bg-hover transition-colors border-t border-border/50">
+                      <Plus size={12} className="text-accent" />
+                      <span className="text-xs text-accent font-medium">New Week</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
@@ -640,7 +941,7 @@ export default function LessonPlansPage() {
               <h2 className="text-sm font-semibold text-text-primary">
                 Weekly Plan &mdash; {formatWeekLabel(weekOf)}
               </h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <button
                   onClick={saveDraft}
                   disabled={!plan || saveStatus === 'saving'}
@@ -746,63 +1047,101 @@ export default function LessonPlansPage() {
                           {/* Activities */}
                           {clsActivities.length > 0 && (
                             <div className="space-y-1.5 mb-2">
-                              {clsActivities.map(act => (
-                                <div key={act.id}
-                                  className="flex items-center gap-2 group rounded-md bg-bg-card/50 px-2.5 py-1.5">
-                                  {/* Bullet */}
-                                  <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-text-muted" />
+                              {clsActivities.map(act => {
+                                // Standard badges
+                                const standards = act.activity_standards
+                                  ?.map(as => as.standards)
+                                  .filter((s): s is NonNullable<typeof s> => s !== null) || [];
+                                const isRegenerating = regeneratingId === act.id;
 
-                                  {/* Title (editable) */}
-                                  {editingActivityId === act.id ? (
-                                    <input
-                                      autoFocus
-                                      value={editTitle}
-                                      onChange={e => setEditTitle(e.target.value)}
-                                      onKeyDown={e => {
-                                        if (e.key === 'Enter') saveActivityTitle(act.id);
-                                        if (e.key === 'Escape') setEditingActivityId(null);
-                                      }}
-                                      onBlur={() => saveActivityTitle(act.id)}
-                                      className="flex-1 px-1.5 py-0.5 bg-bg-input border border-accent rounded text-text-primary text-xs focus:outline-none"
-                                    />
-                                  ) : (
-                                    <span
-                                      className="flex-1 text-xs text-text-secondary cursor-pointer hover:text-text-primary transition-colors"
-                                      onClick={() => { setEditingActivityId(act.id); setEditTitle(act.title); }}>
-                                      {act.title}
-                                    </span>
-                                  )}
+                                return (
+                                  <div key={act.id}
+                                    className={`flex items-start gap-2 rounded-md bg-bg-card/50 px-2.5 py-1.5 ${isRegenerating ? 'opacity-50' : ''}`}>
+                                    {/* Bullet */}
+                                    <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-text-muted mt-1.5" />
 
-                                  {/* Type dropdown */}
-                                  <select
-                                    value={act.activity_type}
-                                    onChange={e => changeActivityType(act.id, e.target.value)}
-                                    className="px-1.5 py-0.5 rounded text-[0.6rem] font-medium shrink-0 bg-bg-secondary border border-border text-text-secondary cursor-pointer focus:outline-none focus:border-accent"
-                                  >
-                                    {ACTIVITY_TYPES.map(t => (
-                                      <option key={t} value={t}>{t}</option>
-                                    ))}
-                                  </select>
+                                    {/* Title + inline standard */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        {/* Title (editable) */}
+                                        {editingActivityId === act.id ? (
+                                          <input
+                                            autoFocus
+                                            value={editTitle}
+                                            onChange={e => setEditTitle(e.target.value)}
+                                            onKeyDown={e => {
+                                              if (e.key === 'Enter') saveActivityTitle(act.id);
+                                              if (e.key === 'Escape') setEditingActivityId(null);
+                                            }}
+                                            onBlur={() => saveActivityTitle(act.id)}
+                                            className="flex-1 px-1.5 py-0.5 bg-bg-input border border-accent rounded text-text-primary text-xs focus:outline-none"
+                                          />
+                                        ) : (
+                                          <span
+                                            className="text-xs text-text-secondary cursor-pointer hover:text-text-primary transition-colors"
+                                            onClick={() => { setEditingActivityId(act.id); setEditTitle(act.title); }}>
+                                            {act.title}
+                                          </span>
+                                        )}
 
-                                  {/* Materials button */}
-                                  <button
-                                    onClick={() => setMaterialActivity(act)}
-                                    className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity text-xs hover:text-accent shrink-0"
-                                    title="Generate materials">
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                  </button>
+                                        {/* Inline standard labels */}
+                                        {standards.length > 0 ? (
+                                          <>
+                                            {standards.map((std) => (
+                                              <button
+                                                key={std.code}
+                                                onClick={(e) => { e.stopPropagation(); openStandardPopup(std.code, std.description, std.strand); }}
+                                                className="px-1.5 py-0.5 rounded text-[0.55rem] font-medium bg-indigo-500/15 text-indigo-400 border border-indigo-500/20 cursor-pointer hover:bg-indigo-500/25 transition-colors shrink-0">
+                                                {std.code}
+                                              </button>
+                                            ))}
+                                          </>
+                                        ) : (
+                                          <span className="text-[0.6rem] text-text-muted italic shrink-0">No standard</span>
+                                        )}
+                                      </div>
+                                    </div>
 
-                                  {/* Delete button */}
-                                  <button
-                                    onClick={() => deleteActivity(act.id)}
-                                    className="text-accent-red opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold hover:text-accent-red/80 shrink-0"
-                                    title="Delete activity">
-                                    &times;
-                                  </button>
-                                </div>
-                              ))}
+                                    {/* Type dropdown */}
+                                    <select
+                                      value={act.activity_type}
+                                      onChange={e => changeActivityType(act.id, e.target.value)}
+                                      className="px-1.5 py-0.5 rounded text-[0.6rem] font-medium shrink-0 bg-bg-secondary border border-border text-text-secondary cursor-pointer focus:outline-none focus:border-accent"
+                                    >
+                                      {ACTIVITY_TYPES.map(t => (
+                                        <option key={t} value={t}>{t}</option>
+                                      ))}
+                                    </select>
+
+                                    {/* Materials button */}
+                                    <button
+                                      onClick={() => setMaterialActivity(act)}
+                                      className="text-text-muted text-xs hover:text-accent shrink-0"
+                                      title="Generate materials">
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                    </button>
+
+                                    {/* Regenerate button */}
+                                    <button
+                                      onClick={() => regenerateActivity(act.id)}
+                                      disabled={isRegenerating}
+                                      className="text-text-muted text-xs hover:text-accent shrink-0 disabled:cursor-not-allowed"
+                                      title="Regenerate this activity">
+                                      <RefreshCw size={13} className={isRegenerating ? 'animate-spin' : ''} />
+                                    </button>
+
+                                    {/* Delete button */}
+                                    <button
+                                      onClick={() => deleteActivity(act.id)}
+                                      className="text-accent-red text-xs font-bold hover:text-accent-red/80 shrink-0"
+                                      title="Delete activity">
+                                      &times;
+                                    </button>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
 
@@ -843,6 +1182,67 @@ export default function LessonPlansPage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Standard Detail Popup */}
+      {standardPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setStandardPopup(null)}>
+          <div className="bg-bg-card border border-border rounded-xl w-full max-w-lg mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/20 font-mono">
+                    {standardPopup.code}
+                  </span>
+                  {standardPopup.strand && (
+                    <span className="text-[0.65rem] text-text-muted">{standardPopup.strand}</span>
+                  )}
+                </div>
+                <p className="text-sm text-text-secondary leading-relaxed">{standardPopup.description}</p>
+              </div>
+              <button
+                onClick={() => setStandardPopup(null)}
+                className="p-1 text-text-muted hover:text-text-primary transition-colors shrink-0">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="px-5 py-3 border-b border-border flex items-center gap-4 text-xs">
+              <span className="text-text-muted">Times addressed:</span>
+              <span className="font-bold text-text-primary">
+                {standardPopupLoading ? '...' : standardPopup.hitCount}
+              </span>
+            </div>
+
+            {/* Activity history */}
+            <div className="px-5 py-3 max-h-[300px] overflow-y-auto">
+              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Activity History</h4>
+              {standardPopupLoading ? (
+                <div className="flex justify-center py-4">
+                  <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : standardPopup.activities.length === 0 ? (
+                <p className="text-xs text-text-muted py-2">No activities have been tagged with this standard yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {standardPopup.activities.map(act => (
+                    <div key={act.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-secondary text-xs">
+                      <span className="text-text-muted shrink-0 w-20">
+                        {act.date ? formatDate(act.date) : 'No date'}
+                      </span>
+                      <span className="text-text-secondary flex-1 truncate">{act.title}</span>
+                      <span className="text-text-muted shrink-0">{act.className}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

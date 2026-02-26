@@ -190,7 +190,14 @@ export async function generateWithRetry(
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         systemInstruction: { role: 'model', parts: [{ text: systemPrompt }] },
-        generationConfig: { temperature, maxOutputTokens: config.maxOutputTokens },
+        generationConfig: {
+          temperature,
+          maxOutputTokens: config.maxOutputTokens,
+          // Disable thinking for JSON generation — thinking tokens eat into
+          // maxOutputTokens and can truncate the actual response
+          // @ts-expect-error thinkingConfig not in types yet
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
       return cleanJsonResponse(result.response.text());
     } catch (e) {

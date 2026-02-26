@@ -1,6 +1,26 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
 
+function classToSubject(className: string): string {
+  const lower = className.toLowerCase();
+  if (lower.includes('french')) return 'French';
+  return 'English';
+}
+
+function classToGradeBand(className: string): string | null {
+  const lower = className.toLowerCase();
+  if (lower.includes('french')) return '1';
+  if (lower.includes('english-1') || lower.includes('english 1') || lower.includes('eng 1')) return '9';
+  if (lower.includes('english-2') || lower.includes('english 2') || lower.includes('eng 2')) return '10';
+  const match = className.match(/(\d+)/);
+  if (match) {
+    const num = parseInt(match[1]);
+    if (num <= 2) return num === 1 ? '9' : '10';
+    return String(num);
+  }
+  return null;
+}
+
 export async function GET() {
   try {
     // 1. Fetch all classes
@@ -71,16 +91,20 @@ export async function GET() {
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
     const cutoffDate = `${fourWeeksAgo.getFullYear()}-${String(fourWeeksAgo.getMonth() + 1).padStart(2, '0')}-${String(fourWeeksAgo.getDate()).padStart(2, '0')}`;
 
-    // 6. Group standards by subject + grade_band and map to each class
-    //    We match classes to standards by name heuristics or just show all
-    //    standards for each class (teacher decides which are relevant).
-    //    For a teacher dashboard, we associate standards with classes by
-    //    subject/grade_band. If that's not possible we show all.
+    // 6. Match standards to each class by subject + grade_band
 
     const classResults = (classes ?? []).map((cls) => {
-      // All standards are potentially relevant to any class
-      // The teacher tagged activities per class, so coverage is per-class
-      const classStandards = (standards ?? []).map((std) => {
+      const subject = classToSubject(cls.name);
+      const gradeBand = classToGradeBand(cls.name);
+
+      // Filter standards to only those matching this class's subject/grade_band
+      const relevantStandards = (standards ?? []).filter((std) => {
+        if (std.subject !== subject) return false;
+        if (gradeBand && std.grade_band !== gradeBand) return false;
+        return true;
+      });
+
+      const classStandards = relevantStandards.map((std) => {
         const key = `${cls.id}:${std.id}`;
         const coverage = coverageMap[key];
         const hit_count = coverage?.hit_count ?? 0;

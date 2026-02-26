@@ -9,6 +9,8 @@ interface BrainstormContext {
   classes?: { id: number; name: string; periods?: string | null }[];
   weekOf?: string;
   existingActivities?: string[];
+  teacherName?: string;
+  schoolName?: string;
 }
 
 interface ParsedActivity {
@@ -28,7 +30,11 @@ interface ParseResult {
   days: ParsedDay[];
 }
 
-const BRAINSTORM_SYSTEM_PROMPT = `You are a helpful AI assistant for a high school English and French teacher (R. Shaw) at Stratford High School in Stratford, Oklahoma.
+function buildBrainstormPrompt(teacherName?: string, schoolName?: string): string {
+  const name = teacherName || 'Teacher';
+  const school = schoolName || 'the school';
+
+  return `You are a helpful AI assistant for a high school English and French teacher (${name}) at ${school}.
 
 You are helping them brainstorm and plan their week of lessons. Your role is to:
 - Suggest creative activities, games, discussions, and lesson ideas
@@ -48,7 +54,10 @@ When suggesting activities, think about:
 - Building on previous days' work
 - Fun games like Jeopardy, relay races, Four Corners, vocabulary bingo, etc.
 
+When you've discussed enough activities to fill a full week for each class, let the teacher know they can click the "Generate Plan" button at the top of the chat to populate their weekly grid automatically. Do NOT try to format activities into a structured plan yourself — the system does that automatically when they click the button.
+
 Keep your responses concise but helpful. Ask follow-up questions to understand what they need.`;
+}
 
 /**
  * Send a brainstorm conversation to the AI and get the response.
@@ -70,7 +79,7 @@ export async function brainstormWithAI(
     contextStr += `\nAlready planned: ${context.existingActivities.join(', ')}`;
   }
 
-  const systemPrompt = BRAINSTORM_SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : '');
+  const systemPrompt = buildBrainstormPrompt(context.teacherName, context.schoolName) + (contextStr ? `\n\nCurrent context:${contextStr}` : '');
 
   try {
     const text = await chatWithAI(systemPrompt, messages, {

@@ -27,21 +27,15 @@ function classToGradeBand(className: string): string | null {
   return null;
 }
 
-const SYSTEM_PROMPT = `You are an Oklahoma academic standards tagger for a high school teacher at Stratford High School.
-
-Given an activity (title, description, and class), identify the 1-3 most relevant Oklahoma academic standards that align with the activity.
-
-You will receive a list of available standards with their codes and descriptions. Choose ONLY from that list.
+const SYSTEM_PROMPT = `You are an Oklahoma academic standards tagger. Given an activity and a list of available standards, pick the 1-3 most relevant standard codes.
 
 Rules:
-- Pick 1-3 standards that BEST match the activity content and skills
-- Prefer specific standards over generic ones
-- If the activity is very broad, pick 2-3 that cover different aspects
-- If the activity is narrowly focused, 1 standard may be sufficient
+- Pick 1-3 codes that BEST match the activity
 - ONLY return codes from the provided list
+- Keep reasoning to one short sentence
 
-Respond with ONLY valid JSON in this format:
-{"codes": ["9.3.R.1", "9.2.W.3"], "reasoning": "Brief explanation of why these standards match"}`;
+Respond with ONLY valid JSON. Example:
+{"codes": ["9.3.R.1"], "reasoning": "Matches literary analysis"}`;
 
 export async function tagActivityWithStandards(
   activity: TaggableActivity
@@ -99,7 +93,7 @@ Select the 1-3 most relevant standard codes. Respond with ONLY valid JSON.`;
       model,
       SYSTEM_PROMPT,
       userPrompt,
-      { temperature: 0.3, maxOutputTokens: 500 }
+      { temperature: 0.3, maxOutputTokens: 1024 }
     );
 
     const codes = (result.codes as string[]) || [];

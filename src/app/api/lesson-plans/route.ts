@@ -4,8 +4,32 @@ import { supabase } from '@/lib/db';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const list = searchParams.get('list');
     const week_of = searchParams.get('week_of');
     const status = searchParams.get('status');
+
+    // Compact listing mode for chat history sidebar
+    if (list === 'true') {
+      const { data, error } = await supabase
+        .from('lesson_plans')
+        .select('id, week_of, status, brainstorm_history, created_at')
+        .order('week_of', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      const compact = (data ?? []).map(p => ({
+        id: p.id,
+        week_of: p.week_of,
+        status: p.status,
+        message_count: Array.isArray(p.brainstorm_history) ? p.brainstorm_history.length : 0,
+        created_at: p.created_at,
+      }));
+
+      return NextResponse.json(compact);
+    }
 
     let query = supabase
       .from('lesson_plans')

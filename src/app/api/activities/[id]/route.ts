@@ -9,7 +9,7 @@ export async function GET(
     const { id } = await params;
     const { data, error } = await supabase
       .from('activities')
-      .select('*, classes(name, periods, color)')
+      .select('*, classes(name, periods, color), activity_standards(standard_id, tagged_by, standards(code, description, strand))')
       .eq('id', parseInt(id))
       .single();
 
@@ -52,7 +52,7 @@ export async function PATCH(
       .from('activities')
       .update(updates)
       .eq('id', parseInt(id))
-      .select('*, classes(name, periods, color)')
+      .select('*, classes(name, periods, color), activity_standards(standard_id, tagged_by, standards(code, description, strand))')
       .single();
 
     if (error) {

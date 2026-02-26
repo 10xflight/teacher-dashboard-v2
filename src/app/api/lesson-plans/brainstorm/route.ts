@@ -42,10 +42,23 @@ export async function POST(request: NextRequest) {
       .select('id, name, periods')
       .order('id', { ascending: true });
 
+    // Fetch teacher name and school name from settings
+    const { data: settingsRows } = await supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['teacher_name', 'school_name']);
+
+    const settingsMap: Record<string, string> = {};
+    for (const row of settingsRows || []) {
+      settingsMap[row.key] = row.value;
+    }
+
     // Call AI
     const { response, error: aiError } = await brainstormWithAI(history, {
       classes: classes || [],
       weekOf: plan.week_of,
+      teacherName: settingsMap.teacher_name || undefined,
+      schoolName: settingsMap.school_name || undefined,
     });
 
     if (aiError) {

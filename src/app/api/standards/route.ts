@@ -41,3 +41,36 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE() {
+  try {
+    // 1. Delete all activity_standards tags
+    const { error: tagError } = await supabase
+      .from('activity_standards')
+      .delete()
+      .neq('standard_id', 0);
+
+    if (tagError) {
+      return NextResponse.json({ error: tagError.message }, { status: 500 });
+    }
+
+    // 2. Delete all standards
+    const { error: stdError } = await supabase
+      .from('standards')
+      .delete()
+      .neq('id', 0);
+
+    if (stdError) {
+      return NextResponse.json({ error: stdError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
