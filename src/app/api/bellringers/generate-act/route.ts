@@ -5,14 +5,14 @@ import { generateActQuestion } from '@/lib/bellringer-generator';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { date, notes } = body;
+    const { date, notes, skill } = body;
 
     if (!date) {
       return NextResponse.json({ error: 'date is required' }, { status: 400 });
     }
 
     // Generate ACT question via AI
-    const { result, error: genError } = await generateActQuestion(notes || '');
+    const { result, error: genError } = await generateActQuestion(notes || '', skill || '');
     if (genError || !result) {
       return NextResponse.json({ error: genError || 'Generation failed' }, { status: 500 });
     }

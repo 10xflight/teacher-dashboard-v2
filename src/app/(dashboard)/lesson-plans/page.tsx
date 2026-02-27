@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import MaterialGeneratorPanel from '@/components/MaterialGeneratorPanel';
 import { localDateStr } from '@/lib/task-helpers';
-import { ChevronLeft, ChevronRight, History, Tag, Lightbulb, Plus, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, History, Tag, Lightbulb, Plus, RefreshCw, List, ArrowLeft } from 'lucide-react';
 
 // ──────────────── Types ────────────────
 
@@ -49,7 +49,6 @@ interface LessonPlanData {
   status: string;
   publish_token?: string | null;
   announcements?: string | null;
-  writers_corner?: Record<string, string> | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -150,9 +149,8 @@ export default function LessonPlansPage() {
   // State: mobile panel toggle
   const [activePanel, setActivePanel] = useState<'chat' | 'grid'>('chat');
 
-  // State: announcements & writers corner
+  // State: announcements
   const [announcements, setAnnouncements] = useState('');
-  const [writersCorner, setWritersCorner] = useState<Record<string, string>>({});
 
   // State: material generator panel
   const [materialActivity, setMaterialActivity] = useState<ActivityData | null>(null);
@@ -171,6 +169,18 @@ export default function LessonPlansPage() {
 
   // State: per-activity regeneration
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
+
+  // State: all-plans view
+  const [viewMode, setViewMode] = useState<'detail' | 'all'>('detail');
+  const [allPlans, setAllPlans] = useState<{
+    id: number;
+    week_of: string;
+    status: string;
+    message_count: number;
+    activity_count: number;
+    created_at: string;
+  }[]>([]);
+  const [allPlansLoading, setAllPlansLoading] = useState(false);
 
   // State: standard detail popup
   const [standardPopup, setStandardPopup] = useState<{
@@ -204,12 +214,10 @@ export default function LessonPlansPage() {
         const history = Array.isArray(p.brainstorm_history) ? p.brainstorm_history : [];
         setChatMessages(history);
         setAnnouncements(p.announcements || '');
-        setWritersCorner(p.writers_corner || {});
       } else {
         setPlan(null);
         setChatMessages([]);
         setAnnouncements('');
-        setWritersCorner({});
       }
     } catch { /* ignore */ }
     setLoading(false);
@@ -239,6 +247,29 @@ export default function LessonPlansPage() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
+
+  // ──────────────── All Plans ────────────────
+
+  async function loadAllPlans() {
+    setAllPlansLoading(true);
+    try {
+      const res = await fetch('/api/lesson-plans?list=true&all=true');
+      if (res.ok) {
+        setAllPlans(await res.json());
+      }
+    } catch { /* ignore */ }
+    setAllPlansLoading(false);
+  }
+
+  function showAllPlans() {
+    setViewMode('all');
+    loadAllPlans();
+  }
+
+  function selectWeekFromAll(weekOf: string) {
+    setWeekOf(weekOf);
+    setViewMode('detail');
+  }
 
   // ──────────────── Chat History ────────────────
 
@@ -651,7 +682,10 @@ export default function LessonPlansPage() {
             className="p-1 text-text-secondary hover:text-accent transition-colors rounded-lg hover:bg-hover">
             <ChevronLeft size={18} />
           </button>
-          <div className="flex items-center gap-2">
+          <label className="relative cursor-pointer w-[10.5rem] text-center">
+            <span className="block px-3 py-1.5 bg-bg-input border border-border rounded-lg text-text-primary text-sm font-medium hover:border-accent transition-colors">
+              {formatWeekLabel(weekOf)}
+            </span>
             <input
               type="date"
               value={weekOf}
@@ -659,25 +693,28 @@ export default function LessonPlansPage() {
                 const val = e.target.value;
                 if (val) setWeekOf(getMonday(val));
               }}
-              className="px-3 py-1.5 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:border-accent focus:outline-none"
+              className="absolute inset-0 opacity-0 cursor-pointer"
             />
-            <span className="text-sm text-text-secondary hidden sm:inline">
-              {formatWeekLabel(weekOf)}
-            </span>
-          </div>
+          </label>
           <button onClick={() => shiftWeek(1)}
             className="p-1 text-text-secondary hover:text-accent transition-colors rounded-lg hover:bg-hover">
             <ChevronRight size={18} />
           </button>
           <button onClick={() => setWeekOf(getCurrentMonday())}
             className="px-2 py-1 text-xs text-accent hover:underline">
-            Today
+            This Week
+          </button>
+          <button
+            onClick={showAllPlans}
+            className="px-2.5 py-1.5 text-xs font-medium text-text-secondary bg-bg-card border border-border rounded-lg hover:border-accent hover:text-text-primary transition-colors flex items-center gap-1.5">
+            <List size={13} />
+            All Plans
           </button>
         </div>
       </div>
 
       {/* Status bar */}
-      {plan && (
+      {plan && viewMode === 'detail' && (
         <div className="flex items-center gap-3 text-xs flex-wrap">
           <span className="px-2 py-1 rounded-full font-medium bg-bg-card border border-border text-text-secondary">
             {plan.status === 'published' ? 'Published' : 'Draft'}
@@ -747,6 +784,113 @@ export default function LessonPlansPage() {
         </div>
       )}
 
+      {/* ──────────── ALL PLANS VIEW ──────────── */}
+      {viewMode === 'all' ? (
+        <div className="space-y-4">
+          {/* Back button */}
+          <button
+            onClick={() => setViewMode('detail')}
+            className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors">
+            <ArrowLeft size={14} />
+            Back to current week
+          </button>
+
+          {allPlansLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : allPlans.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-text-muted text-sm">No lesson plans found.</p>
+            </div>
+          ) : (() => {
+            // Group plans by month
+            const grouped: { label: string; plans: typeof allPlans }[] = [];
+            let currentMonth = '';
+            for (const p of allPlans) {
+              const d = new Date(p.week_of + 'T12:00:00');
+              const monthLabel = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+              if (monthLabel !== currentMonth) {
+                currentMonth = monthLabel;
+                grouped.push({ label: monthLabel, plans: [] });
+              }
+              grouped[grouped.length - 1].plans.push(p);
+            }
+
+            return (
+              <div className="space-y-6">
+                {grouped.map(group => (
+                  <div key={group.label}>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2 px-1">
+                      {group.label}
+                    </h3>
+                    <div className="space-y-1.5">
+                      {group.plans.map(p => {
+                        const monday = new Date(p.week_of + 'T12:00:00');
+                        const friday = new Date(monday);
+                        friday.setDate(monday.getDate() + 4);
+                        const mStr = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        const fStr = friday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        const isCurrentWeek = p.week_of === getCurrentMonday();
+
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => selectWeekFromAll(p.week_of)}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left group hover:border-accent/50 hover:bg-hover ${
+                              isCurrentWeek
+                                ? 'bg-accent/5 border-accent/30'
+                                : 'bg-bg-card border-border'
+                            }`}>
+                            {/* Week date range */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-semibold ${isCurrentWeek ? 'text-accent' : 'text-text-primary'}`}>
+                                  {mStr} &ndash; {fStr}
+                                </span>
+                                {isCurrentWeek && (
+                                  <span className="px-1.5 py-0.5 rounded text-[0.55rem] font-bold bg-accent/15 text-accent uppercase tracking-wide">
+                                    This Week
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-0.5">
+                                <span className="text-xs text-text-muted">
+                                  {p.activity_count} activit{p.activity_count === 1 ? 'y' : 'ies'}
+                                </span>
+                                {p.message_count > 0 && (
+                                  <span className="text-xs text-text-muted">
+                                    {p.message_count} chat msg{p.message_count !== 1 ? 's' : ''}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Status badge */}
+                            <span className={`px-2 py-0.5 rounded-full text-[0.6rem] font-semibold shrink-0 ${
+                              p.status === 'published'
+                                ? 'bg-accent-green/15 text-accent-green border border-accent-green/20'
+                                : p.status === 'imported'
+                                ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+                                : 'bg-bg-secondary text-text-muted border border-border'
+                            }`}>
+                              {p.status === 'published' ? 'Published' : p.status === 'imported' ? 'Imported' : 'Draft'}
+                            </span>
+
+                            {/* Arrow */}
+                            <ChevronRight size={16} className="text-text-muted group-hover:text-accent transition-colors shrink-0" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+      ) : (
+      <>
       {/* Mobile panel toggle */}
       <div className="flex lg:hidden gap-2">
         <button
@@ -976,29 +1120,6 @@ export default function LessonPlansPage() {
                 </div>
               )}
 
-              {/* Writers Corner */}
-              {plan && classes.length > 0 && (
-                <div className="rounded-lg bg-bg-secondary border border-border p-3">
-                  <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
-                    Writers Corner
-                  </label>
-                  <div className="space-y-1.5">
-                    {classes.map(cls => (
-                      <div key={cls.id} className="flex items-center gap-2">
-                        <span className="text-xs text-text-secondary w-24 shrink-0">{cls.name}:</span>
-                        <input
-                          type="text"
-                          value={writersCorner[String(cls.id)] || ''}
-                          onChange={e => setWritersCorner(prev => ({ ...prev, [String(cls.id)]: e.target.value }))}
-                          onBlur={() => savePlanField('writers_corner', writersCorner)}
-                          placeholder="Student name(s)..."
-                          className="flex-1 px-2 py-1 bg-bg-input border border-border rounded text-text-primary text-xs focus:border-accent focus:outline-none placeholder:text-text-muted"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {activities.length === 0 && !loading && (
                 <div className="text-center py-12">
@@ -1016,7 +1137,7 @@ export default function LessonPlansPage() {
                 return (
                   <div key={date} className="space-y-2">
                     {/* Day header */}
-                    <div className="flex items-center gap-2 sticky top-0 bg-bg-card z-10 py-1">
+                    <div className="flex items-center gap-2 py-1">
                       <h3 className="text-sm font-bold text-text-primary">
                         {DAY_NAMES[dayIdx]}
                       </h3>
@@ -1116,8 +1237,12 @@ export default function LessonPlansPage() {
                                     {/* Materials button */}
                                     <button
                                       onClick={() => setMaterialActivity(act)}
-                                      className="text-text-muted text-xs hover:text-accent shrink-0"
-                                      title="Generate materials">
+                                      className={`text-xs shrink-0 ${
+                                        act.material_status === 'ready'
+                                          ? 'text-accent-green hover:text-accent-green/80'
+                                          : 'text-text-muted hover:text-accent'
+                                      }`}
+                                      title={act.material_status === 'ready' ? 'View materials' : 'Generate materials'}>
                                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                       </svg>
@@ -1185,6 +1310,8 @@ export default function LessonPlansPage() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
 
       {/* Standard Detail Popup */}

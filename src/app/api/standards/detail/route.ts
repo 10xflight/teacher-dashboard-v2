@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     // Fetch all activity_standards for this standard, joined with activity + class info
     const { data: tags, error: tagError } = await supabase
       .from('activity_standards')
-      .select('activity_id, activities(id, title, date, class_id, classes(name))')
+      .select('activity_id, activities(id, title, date, class_id, lesson_plan_id, classes(name))')
       .eq('standard_id', standard.id)
       .order('activity_id', { ascending: false });
 
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
           title: string;
           date: string | null;
           class_id: number;
+          lesson_plan_id: number | null;
           classes: { name: string } | { name: string }[] | null;
         } | null;
         if (!act) return null;
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
           title: act.title,
           date: act.date,
           className: cls?.name || 'Unknown',
+          lesson_plan_id: act.lesson_plan_id,
         };
       })
       .filter(Boolean)

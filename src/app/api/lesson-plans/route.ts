@@ -10,14 +10,50 @@ export async function GET(request: NextRequest) {
 
     // Compact listing mode for chat history sidebar
     if (list === 'true') {
-      const { data, error } = await supabase
+      const all = searchParams.get('all') === 'true';
+      let listQuery = supabase
         .from('lesson_plans')
         .select('id, week_of, status, brainstorm_history, created_at')
-        .order('week_of', { ascending: false })
-        .limit(20);
+        .order('week_of', { ascending: false });
+
+      if (!all) {
+        listQuery = listQuery.limit(20);
+      }
+
+      const { data, error } = await listQuery;
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      // If all=true, also fetch activity counts per plan
+      if (all && data && data.length > 0) {
+        const planIds = data.map(p => p.id);
+        const { data: actCounts } = await supabase
+          .from('activities')
+          .select('lesson_plan_id')
+          .in('lesson_plan_id', planIds);
+
+        // Count activities per plan
+        const countMap: Record<number, number> = {};
+        if (actCounts) {
+          for (const a of actCounts) {
+            if (a.lesson_plan_id) {
+              countMap[a.lesson_plan_id] = (countMap[a.lesson_plan_id] || 0) + 1;
+            }
+          }
+        }
+
+        const detailed = data.map(p => ({
+          id: p.id,
+          week_of: p.week_of,
+          status: p.status,
+          message_count: Array.isArray(p.brainstorm_history) ? p.brainstorm_history.length : 0,
+          activity_count: countMap[p.id] || 0,
+          created_at: p.created_at,
+        }));
+
+        return NextResponse.json(detailed);
       }
 
       const compact = (data ?? []).map(p => ({

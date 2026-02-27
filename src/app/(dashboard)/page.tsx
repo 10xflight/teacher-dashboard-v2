@@ -26,6 +26,27 @@ interface WeekDay {
   bellringerApproved: boolean;
 }
 
+interface ActivityData {
+  id: number;
+  class_id: number;
+  date: string;
+  title: string;
+  description: string | null;
+  activity_type: string;
+  material_status: string;
+  is_done: boolean;
+  is_graded: boolean;
+  moved_to_date: string | null;
+  classes: { name: string; periods: string | null; color: string | null } | null;
+}
+
+interface ClassInfo {
+  id: number;
+  name: string;
+  periods: string | null;
+  color: string | null;
+}
+
 function getWeekdays(count = 5): string[] {
   const days: string[] = [];
   const d = new Date();
@@ -48,6 +69,10 @@ export default function Dashboard() {
   const [weekdayDates] = useState(() => getWeekdays(5));
   const [weekDays, setWeekDays] = useState<WeekDay[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Today's lessons state
+  const [todayActivities, setTodayActivities] = useState<ActivityData[]>([]);
+  const [classes, setClasses] = useState<ClassInfo[]>([]);
 
   // Countdown state
   const [gradingEnd, setGradingEnd] = useState<{ days: number; date: string; title: string } | null>(null);
@@ -147,6 +172,21 @@ export default function Dashboard() {
     loadCountdowns();
   }, [today]);
 
+  // Load classes and today's activities
+  useEffect(() => {
+    fetch('/api/classes').then(r => r.json()).then(setClasses).catch(() => {});
+    fetch(`/api/day/${today}`).then(r => r.json()).then(data => {
+      setTodayActivities(data.activities || []);
+    }).catch(() => {});
+  }, [today]);
+
+  // Group today's activities by class
+  const activitiesByClass: Record<number, ActivityData[]> = {};
+  for (const act of todayActivities) {
+    if (!activitiesByClass[act.class_id]) activitiesByClass[act.class_id] = [];
+    activitiesByClass[act.class_id].push(act);
+  }
+
   const loadWeekDays = useCallback(async () => {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -185,8 +225,6 @@ export default function Dashboard() {
   }, [today, weekdayDates]);
 
   useEffect(() => { loadWeekDays(); }, [loadWeekDays]);
-
-  const todayData = weekDays.find(d => d.isToday);
 
   return (
     <div className="space-y-6">
@@ -301,57 +339,76 @@ export default function Dashboard() {
         {/* Tasks — managed by TaskTable */}
         <TaskTable onTasksChanged={loadWeekDays} />
 
-        {/* Right column */}
-        <div className="space-y-4">
-          {/* Today's Bellringer Status */}
-          <div className="rounded-xl bg-bg-card border border-border p-5">
-            <h2 className="text-lg font-semibold text-text-primary mb-3">Today&apos;s Bellringer</h2>
-            {todayData?.hasBellringer ? (
-              <div className="flex items-center gap-3">
-                <span className={`inline-block w-3 h-3 rounded-full ${todayData.bellringerApproved ? 'bg-accent-green' : 'bg-accent-yellow'}`} />
-                <span className="text-sm text-text-secondary">
-                  {todayData.bellringerApproved ? 'Approved & Ready' : 'Draft - needs review'}
-                </span>
-                <Link href={`/bellringer/edit/${today}`} className="text-sm text-accent hover:underline ml-auto">Edit</Link>
-                <a href={`/display/${today}`} target="_blank" rel="noopener noreferrer" className="text-sm text-accent-yellow hover:underline">Display</a>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <span className="inline-block w-3 h-3 rounded-full bg-accent-red" />
-                <span className="text-sm text-text-secondary">Not created yet</span>
-                <Link href={`/bellringer/edit/${today}`} className="text-sm text-accent hover:underline ml-auto">Create Now</Link>
-              </div>
-            )}
-          </div>
-
-          {/* Quick Links */}
-          <div className="rounded-xl bg-bg-card border border-border p-5">
-            <h2 className="text-lg font-semibold text-text-primary mb-3">Quick Links</h2>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { href: `/bellringer/edit/${today}`, icon: '\u270E', label: 'Edit Bellringer' },
-                { href: `/display/${today}`, icon: '\uD83D\uDCFA', label: 'TV Display', newTab: true },
-                { href: '/lesson-plans', icon: '\uD83D\uDCC4', label: 'Lesson Plans' },
-                { href: '/bellringer/batch', icon: '\uD83D\uDCE6', label: 'Batch Bellringers' },
-                { href: '/calendar', icon: '\uD83D\uDCC5', label: 'Calendar' },
-                { href: '/settings', icon: '\u2699', label: 'Settings' },
-              ].map(link => (
-                link.newTab ? (
-                  <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer"
-                    className="block p-3 rounded-lg bg-bg-input border border-border hover:border-accent text-center transition-colors">
-                    <div className="text-2xl mb-1">{link.icon}</div>
-                    <div className="text-sm text-text-secondary">{link.label}</div>
-                  </a>
-                ) : (
-                  <Link key={link.href} href={link.href}
-                    className="block p-3 rounded-lg bg-bg-input border border-border hover:border-accent text-center transition-colors">
-                    <div className="text-2xl mb-1">{link.icon}</div>
-                    <div className="text-sm text-text-secondary">{link.label}</div>
-                  </Link>
-                )
-              ))}
+        {/* Today's Lessons */}
+        <div className="rounded-xl bg-bg-card border border-border p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-text-primary">Today&apos;s Lessons</h2>
+            <div className="flex items-center gap-2">
+              <Link href={`/sub`} className="text-xs text-text-secondary hover:text-accent transition-colors">Sub Pack</Link>
+              <Link href="/lesson-plans" className="text-xs text-accent hover:underline">Plans</Link>
             </div>
           </div>
+
+          {classes.length > 0 ? (
+            <div className="space-y-3">
+              {classes.map(cls => {
+                const acts = activitiesByClass[cls.id] || [];
+
+                return (
+                  <div key={cls.id}
+                    className={`rounded-lg bg-bg-secondary border border-border/50 p-3 ${cls.color ? 'border-l-4' : ''}`}
+                    style={cls.color ? { borderLeftColor: cls.color } : undefined}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-text-primary">{cls.name}</h3>
+                        {cls.periods && (
+                          <span className="text-[0.65rem] text-text-muted">{cls.periods}</span>
+                        )}
+                      </div>
+                      {acts.length > 0 && (
+                        <span className="text-[0.65rem] text-text-muted">
+                          {acts.length} activit{acts.length === 1 ? 'y' : 'ies'}
+                        </span>
+                      )}
+                    </div>
+
+                    {acts.length > 0 ? (
+                      <div className="space-y-1">
+                        {acts.map(act => (
+                          <div key={act.id} className="flex items-center gap-2 group">
+                            <Link href="/lesson-plans" className="shrink-0" title={
+                              act.material_status === 'ready' ? 'Materials ready' :
+                              act.material_status === 'pending' ? 'Materials pending' : 'No materials'
+                            }>
+                              <svg className={`w-4 h-4 ${
+                                act.material_status === 'ready'
+                                  ? 'text-accent-green'
+                                  : act.material_status === 'pending'
+                                  ? 'text-accent-yellow'
+                                  : 'text-text-muted/40'
+                              }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                              </svg>
+                            </Link>
+                            <span className="text-xs text-text-secondary">
+                              {act.title}
+                            </span>
+                            {act.is_graded && (
+                              <span className="text-accent-yellow text-[0.6rem]">&#9733;</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-text-muted">No activities planned</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-text-muted">No classes configured yet.</p>
+          )}
         </div>
       </div>
 
@@ -361,6 +418,7 @@ export default function Dashboard() {
           date={selectedDate}
           onClose={() => { setSelectedDate(null); loadWeekDays(); }}
           onDataChanged={loadWeekDays}
+          onDateChange={setSelectedDate}
         />
       )}
     </div>

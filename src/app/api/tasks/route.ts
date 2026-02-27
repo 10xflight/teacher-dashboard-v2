@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    doneQuery = doneQuery.order('completed_at', { ascending: false }).limit(10);
+    doneQuery = doneQuery.order('completed_at', { ascending: false });
 
     const { data: done, error: doneError } = await doneQuery;
 

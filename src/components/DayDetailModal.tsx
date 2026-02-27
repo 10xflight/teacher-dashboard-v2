@@ -2,22 +2,34 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import type { CalendarEvent, Task, Bellringer, ClassInfo } from '@/lib/types';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type { CalendarEvent, Task, Bellringer, BellringerPrompt, ClassInfo } from '@/lib/types';
+
+interface BellringerWithPrompts extends Bellringer {
+  prompts?: BellringerPrompt[];
+}
 
 interface DayData {
   date: string;
   events: CalendarEvent[];
   tasks: Task[];
-  bellringer: Bellringer | null;
+  bellringer: BellringerWithPrompts | null;
 }
 
 interface DayDetailModalProps {
   date: string; // YYYY-MM-DD
   onClose: () => void;
   onDataChanged?: () => void;
+  onDateChange?: (date: string) => void;
 }
 
-export default function DayDetailModal({ date, onClose, onDataChanged }: DayDetailModalProps) {
+function shiftDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export default function DayDetailModal({ date, onClose, onDataChanged, onDateChange }: DayDetailModalProps) {
   const [data, setData] = useState<DayData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +50,48 @@ export default function DayDetailModal({ date, onClose, onDataChanged }: DayDeta
   // Classes for dropdown
   const [classes, setClasses] = useState<ClassInfo[]>([]);
 
+  // Bellringer slide pagination
+  const [bellSlide, setBellSlide] = useState(0);
+
+  function getBellSlides(b: BellringerWithPrompts) {
+    const slides: { label: string; content: string }[] = [];
+    const prompts = b.prompts || [];
+    if (prompts.length > 0) {
+      for (const p of prompts) {
+        const typeLabel = p.journal_type
+          ? p.journal_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+          : 'Prompt';
+        slides.push({
+          label: `${typeLabel} #${p.slot + 1}`,
+          content: p.journal_prompt || '(empty)',
+        });
+      }
+    } else if (b.journal_prompt) {
+      slides.push({ label: b.journal_type || 'Prompt', content: b.journal_prompt });
+    }
+    if (b.act_question) {
+      const choices = [
+        b.act_choice_a ? `A) ${b.act_choice_a}` : '',
+        b.act_choice_b ? `B) ${b.act_choice_b}` : '',
+        b.act_choice_c ? `C) ${b.act_choice_c}` : '',
+        b.act_choice_d ? `D) ${b.act_choice_d}` : '',
+      ].filter(Boolean).join('\n');
+      slides.push({
+        label: b.act_skill_category ? `ACT: ${b.act_skill_category}` : 'ACT Question',
+        content: b.act_question + (choices ? '\n\n' + choices : ''),
+      });
+      if (b.act_correct_answer) {
+        slides.push({
+          label: 'ACT Answer',
+          content: `Correct: ${b.act_correct_answer}` +
+            (b.act_explanation ? `\n\n${b.act_explanation}` : '') +
+            (b.act_rule ? `\n\nRule: ${b.act_rule}` : ''),
+        });
+      }
+    }
+    return slides;
+  }
+
   const fetchDayData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -57,6 +111,7 @@ export default function DayDetailModal({ date, onClose, onDataChanged }: DayDeta
 
   useEffect(() => {
     fetchDayData();
+    setBellSlide(0);
   }, [fetchDayData]);
 
   // Load classes on mount
@@ -208,20 +263,47 @@ export default function DayDetailModal({ date, onClose, onDataChanged }: DayDeta
       <div className="relative w-full max-w-lg max-h-[85vh] bg-bg-card border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col animate-modal-in">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-border flex-shrink-0">
-          <div>
+          <div className="flex items-center gap-2">
+            {onDateChange && (
+              <button
+                onClick={() => onDateChange(shiftDate(date, -1))}
+                className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-hover transition-colors"
+                aria-label="Previous day"
+              >
+                <ChevronLeft size={18} />
+              </button>
+            )}
             <h2 className="text-lg font-semibold text-text-primary">
               {formatDate(date)}
             </h2>
+            {onDateChange && (
+              <button
+                onClick={() => onDateChange(shiftDate(date, 1))}
+                className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-hover transition-colors"
+                aria-label="Next day"
+              >
+                <ChevronRight size={18} />
+              </button>
+            )}
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-hover transition-colors"
-            aria-label="Close modal"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1">
+            <Link
+              href="/calendar"
+              onClick={onClose}
+              className="text-xs text-accent hover:underline px-2 py-1"
+            >
+              Full Calendar
+            </Link>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-hover transition-colors"
+              aria-label="Close modal"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -256,20 +338,50 @@ export default function DayDetailModal({ date, onClose, onDataChanged }: DayDeta
                   })()}
                 </div>
 
-                {data.bellringer ? (
-                  <div className="rounded-lg bg-bg-secondary p-3 space-y-2">
-                    {data.bellringer.journal_prompt && (
-                      <p className="text-sm text-text-primary leading-relaxed">
-                        {data.bellringer.journal_prompt}
-                      </p>
-                    )}
-                    {data.bellringer.act_skill && (
-                      <p className="text-xs text-text-muted">
-                        ACT: {data.bellringer.act_skill_category} &mdash; {data.bellringer.act_skill}
-                      </p>
-                    )}
-                  </div>
-                ) : (
+                {data.bellringer ? (() => {
+                  const slides = getBellSlides(data.bellringer);
+                  if (slides.length === 0) {
+                    return <p className="text-sm text-text-muted">Bellringer exists but has no content yet.</p>;
+                  }
+                  const idx = Math.min(bellSlide, slides.length - 1);
+                  const slide = slides[idx];
+                  return (
+                    <div className="rounded-lg bg-bg-secondary p-4">
+                      {/* Label */}
+                      <span className="text-[0.65rem] uppercase tracking-wider text-text-muted font-semibold">
+                        {slide.label}
+                      </span>
+                      {/* Slide content with min-height so arrows stay put */}
+                      <div className="min-h-[5rem] mt-2">
+                        <p className="text-sm text-text-primary leading-relaxed whitespace-pre-line">
+                          {slide.content}
+                        </p>
+                      </div>
+                      {/* Navigation at bottom */}
+                      {slides.length > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-3 pt-3 border-t border-border/30">
+                          <button
+                            onClick={() => setBellSlide(Math.max(idx - 1, 0))}
+                            disabled={idx <= 0}
+                            className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-hover disabled:opacity-30 transition-colors"
+                          >
+                            <ChevronLeft size={18} />
+                          </button>
+                          <span className="text-xs text-text-muted min-w-[3rem] text-center">
+                            {idx + 1} / {slides.length}
+                          </span>
+                          <button
+                            onClick={() => setBellSlide(Math.min(idx + 1, slides.length - 1))}
+                            disabled={idx >= slides.length - 1}
+                            className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-hover disabled:opacity-30 transition-colors"
+                          >
+                            <ChevronRight size={18} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })() : (
                   <p className="text-sm text-text-muted">
                     No bellringer created for this date.
                   </p>

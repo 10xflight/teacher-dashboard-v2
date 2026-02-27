@@ -5,7 +5,7 @@ import { generateFullBellringer } from '@/lib/bellringer-generator';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { date, notes } = body;
+    const { date, notes, promptsOnly } = body;
 
     if (!date) {
       return NextResponse.json({ error: 'date is required' }, { status: 400 });
@@ -20,13 +20,18 @@ export async function POST(request: NextRequest) {
     // Get or create bellringer row
     const { id: bellringerId } = await getOrCreateBellringer(date);
 
-    // Update main bellringer row with ACT fields + first prompt (backwards compat)
-    const { error: updateError } = await supabase
-      .from('bellringers')
-      .update({
-        journal_type: result.journal_type as string || null,
-        journal_prompt: result.journal_prompt as string || null,
-        journal_subprompt: result.journal_subprompt as string || 'WRITE A PARAGRAPH IN YOUR JOURNAL!',
+    // Update main bellringer row (backwards compat for first prompt + optionally ACT)
+    const updateFields: Record<string, unknown> = {
+      journal_type: result.journal_type as string || null,
+      journal_prompt: result.journal_prompt as string || null,
+      journal_subprompt: result.journal_subprompt as string || 'WRITE A PARAGRAPH IN YOUR JOURNAL!',
+      status: 'draft',
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only save ACT fields if not in promptsOnly mode (avoids race with separate ACT generation)
+    if (!promptsOnly) {
+      Object.assign(updateFields, {
         act_skill_category: result.act_skill_category as string || null,
         act_skill: result.act_skill as string || null,
         act_question: result.act_question as string || null,
@@ -37,9 +42,12 @@ export async function POST(request: NextRequest) {
         act_correct_answer: result.act_correct_answer as string || null,
         act_explanation: result.act_explanation as string || null,
         act_rule: result.act_rule as string || null,
-        status: 'draft',
-        updated_at: new Date().toISOString(),
-      })
+      });
+    }
+
+    const { error: updateError } = await supabase
+      .from('bellringers')
+      .update(updateFields)
       .eq('id', bellringerId);
 
     if (updateError) throw updateError;

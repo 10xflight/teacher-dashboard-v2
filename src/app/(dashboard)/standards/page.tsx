@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { ChevronUp, ChevronDown, Upload, RefreshCw, X, Trash2 } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import Link from 'next/link';
+import { ChevronUp, ChevronDown, ChevronRight, Upload, RefreshCw, X, Trash2 } from 'lucide-react';
 
 // ──────────────── Types ────────────────
 
@@ -35,6 +36,22 @@ interface ParsedStandard {
   code: string;
   description: string;
   strand?: string;
+}
+
+interface StandardDetail {
+  code: string;
+  description: string;
+  strand: string | null;
+  subject: string;
+  grade_band: string;
+  hit_count: number;
+  activities: {
+    id: number;
+    title: string;
+    date: string | null;
+    className: string;
+    lesson_plan_id: number | null;
+  }[];
 }
 
 type SortField = 'code' | 'last_hit' | 'count';
@@ -89,6 +106,11 @@ export default function StandardsCoveragePage() {
   const [uploadParsing, setUploadParsing] = useState(false);
   const [uploadPreview, setUploadPreview] = useState<ParsedStandard[] | null>(null);
   const [uploadResult, setUploadResult] = useState<{ inserted: number; updated: number } | null>(null);
+
+  // Drill-down state
+  const [expandedCode, setExpandedCode] = useState<string | null>(null);
+  const [detailData, setDetailData] = useState<StandardDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   // ──────────────── Data Loading ────────────────
 
@@ -310,6 +332,27 @@ export default function StandardsCoveragePage() {
     return sortDir === 'asc' ? <ChevronUp size={12} className="inline ml-0.5" /> : <ChevronDown size={12} className="inline ml-0.5" />;
   }
 
+  // ──────────────── Drill-Down Toggle ────────────────
+
+  async function toggleExpand(code: string) {
+    if (expandedCode === code) {
+      setExpandedCode(null);
+      setDetailData(null);
+      return;
+    }
+    setExpandedCode(code);
+    setDetailLoading(true);
+    setDetailData(null);
+    try {
+      const res = await fetch(`/api/standards/detail?code=${encodeURIComponent(code)}`);
+      if (res.ok) {
+        const data: StandardDetail = await res.json();
+        setDetailData(data);
+      }
+    } catch { /* ignore */ }
+    setDetailLoading(false);
+  }
+
   // ──────────────── Status Rendering ────────────────
 
   function renderStatus(std: StandardData) {
@@ -442,7 +485,7 @@ export default function StandardsCoveragePage() {
             return (
               <button
                 key={cls.id}
-                onClick={() => setSelectedClassId(cls.id)}
+                onClick={() => { setSelectedClassId(cls.id); setExpandedCode(null); setDetailData(null); }}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all ${
                   isSelected
                     ? 'border-accent bg-accent/10'
@@ -580,61 +623,132 @@ export default function StandardsCoveragePage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredAndSorted.map((std) => (
-                    <tr
-                      key={std.id}
-                      className={`transition-colors hover:bg-bg-secondary/30 ${
-                        std.hit_count === 0
-                          ? 'bg-accent-red/[0.03]'
-                          : std.is_gap
-                          ? 'bg-accent-yellow/[0.03]'
-                          : ''
-                      }`}
-                    >
-                      <td className="px-5 py-3">
-                        <div className="flex flex-col">
-                          <span className="font-mono text-xs font-semibold text-text-primary">
-                            {std.code}
-                          </span>
-                          {std.strand && (
-                            <span className="text-[0.65rem] text-text-muted mt-0.5">
-                              {std.strand}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className="text-xs text-text-secondary leading-relaxed line-clamp-2">
-                          {std.description}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 whitespace-nowrap">
-                        <span
-                          className={`text-xs ${
-                            std.last_hit_date
-                              ? 'text-text-secondary'
-                              : 'text-text-muted italic'
-                          }`}
-                        >
-                          {formatDate(std.last_hit_date)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span
-                          className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
+                  filteredAndSorted.map((std) => {
+                    const isExpanded = expandedCode === std.code;
+                    return (
+                      <React.Fragment key={std.id}>
+                        <tr
+                          onClick={() => toggleExpand(std.code)}
+                          className={`transition-colors hover:bg-bg-secondary/30 cursor-pointer ${
+                            isExpanded ? 'bg-bg-secondary/40' :
                             std.hit_count === 0
-                              ? 'bg-bg-input text-text-muted'
-                              : 'bg-accent/15 text-accent'
+                              ? 'bg-accent-red/[0.03]'
+                              : std.is_gap
+                              ? 'bg-accent-yellow/[0.03]'
+                              : ''
                           }`}
                         >
-                          {std.hit_count}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        {renderStatus(std)}
-                      </td>
-                    </tr>
-                  ))
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <ChevronRight size={14} className={`text-text-muted shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                              <div className="flex flex-col">
+                                <span className="font-mono text-xs font-semibold text-text-primary">
+                                  {std.code}
+                                </span>
+                                {std.strand && (
+                                  <span className="text-[0.65rem] text-text-muted mt-0.5">
+                                    {std.strand}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="text-xs text-text-secondary leading-relaxed line-clamp-2">
+                              {std.description}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <span
+                              className={`text-xs ${
+                                std.last_hit_date
+                                  ? 'text-text-secondary'
+                                  : 'text-text-muted italic'
+                              }`}
+                            >
+                              {formatDate(std.last_hit_date)}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-center">
+                            <span
+                              className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
+                                std.hit_count === 0
+                                  ? 'bg-bg-input text-text-muted'
+                                  : 'bg-accent/15 text-accent'
+                              }`}
+                            >
+                              {std.hit_count}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-center">
+                            {renderStatus(std)}
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan={5} className="px-0 py-0">
+                              <div className="bg-bg-secondary/60 border-t border-b border-accent/20 px-8 py-4">
+                                {detailLoading ? (
+                                  <div className="flex items-center justify-center py-4">
+                                    <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                                  </div>
+                                ) : detailData ? (
+                                  <div className="space-y-3">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono text-sm font-bold text-text-primary">{detailData.code}</span>
+                                        <span className="text-xs text-text-muted">{detailData.subject} &middot; {detailData.grade_band}</span>
+                                      </div>
+                                      <p className="text-xs text-text-secondary mt-1 leading-relaxed">{detailData.description}</p>
+                                      <p className="text-xs text-text-muted mt-1">
+                                        Covered <span className="font-semibold text-text-primary">{detailData.hit_count}</span> time{detailData.hit_count !== 1 ? 's' : ''}
+                                      </p>
+                                    </div>
+
+                                    {detailData.activities.length > 0 ? (
+                                      <table className="w-full text-xs">
+                                        <thead>
+                                          <tr className="border-b border-border/50">
+                                            <th className="py-1.5 pr-4 text-left font-semibold text-text-muted">Date</th>
+                                            <th className="py-1.5 pr-4 text-left font-semibold text-text-muted">Activity</th>
+                                            <th className="py-1.5 pr-4 text-left font-semibold text-text-muted">Class</th>
+                                            <th className="py-1.5 text-right font-semibold text-text-muted"></th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border/30">
+                                          {detailData.activities.map((act) => (
+                                            <tr key={act.id} className="hover:bg-bg-secondary/40">
+                                              <td className="py-1.5 pr-4 text-text-secondary whitespace-nowrap">{formatDate(act.date)}</td>
+                                              <td className="py-1.5 pr-4 text-text-primary">{act.title}</td>
+                                              <td className="py-1.5 pr-4 text-text-secondary">{act.className}</td>
+                                              <td className="py-1.5 text-right">
+                                                <Link
+                                                  href="/lesson-plans"
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  className="text-accent hover:underline inline-flex items-center gap-0.5"
+                                                >
+                                                  <span className="text-xs">View</span>
+                                                  <ChevronRight size={12} />
+                                                </Link>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    ) : (
+                                      <p className="text-xs text-text-muted">No activities have covered this standard yet.</p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-text-muted py-2">Failed to load detail.</p>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>

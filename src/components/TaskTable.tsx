@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { ClassInfo, Task } from '@/lib/types';
 import { parseNaturalDate, matchClass, formatShortDate, localDateStr } from '@/lib/task-helpers';
+import Link from 'next/link';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Check, Calendar, ArrowUpDown } from 'lucide-react';
 
 interface TaskTableProps {
@@ -94,6 +95,10 @@ export default function TaskTable({ onTasksChanged }: TaskTableProps) {
   // Filter tasks by week
   const { start: weekStart, end: weekEnd } = getWeekRange(weekOffset);
   const weekTodo = todo.filter(t => {
+    if (!t.due_date) return weekOffset === 0;
+    return t.due_date >= weekStart && t.due_date <= weekEnd;
+  });
+  const weekDone = done.filter(t => {
     if (!t.due_date) return weekOffset === 0;
     return t.due_date >= weekStart && t.due_date <= weekEnd;
   });
@@ -315,7 +320,10 @@ export default function TaskTable({ onTasksChanged }: TaskTableProps) {
     <div className="rounded-xl bg-bg-card border border-border p-5">
       {/* Header with sort + week nav */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold text-text-primary">Tasks</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-text-primary">Tasks</h2>
+          <Link href="/tasks" className="text-xs text-accent hover:underline">View All →</Link>
+        </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setSortBy(s => s === 'due_date' ? 'created_date' : 'due_date')}
@@ -604,19 +612,19 @@ export default function TaskTable({ onTasksChanged }: TaskTableProps) {
       </div>
 
       {/* Completed section */}
-      {done.length > 0 && (
+      {weekDone.length > 0 && (
         <div className="mt-3 pt-2 border-t border-border/50">
           <button
             onClick={() => setShowDone(!showDone)}
             className="text-xs text-text-muted hover:text-text-primary transition-colors flex items-center gap-1"
           >
             {showDone ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            Completed ({done.length})
+            Completed ({weekDone.length})
           </button>
 
           {showDone && (
             <div className="mt-1.5 space-y-0">
-              {done.map(task => (
+              {weekDone.map(task => (
                 <div
                   key={task.id}
                   className="grid grid-cols-[28px_1fr_80px_28px] md:grid-cols-[28px_1fr_90px_80px_80px_28px] gap-0 items-center group py-1 border-b border-border/20"

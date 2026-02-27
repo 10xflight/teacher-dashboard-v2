@@ -253,10 +253,15 @@ export default function DisplayPage() {
       if (!answerEl) { container.style.opacity = '1'; return; }
 
       const applySize = (size: number) => {
-        answerEl.style.fontSize = `${size}rem`;
+        // Rule/explanation is the hero text, answer is secondary
+        if (ruleEl) {
+          ruleEl.style.fontSize = `${size}rem`;
+          ruleEl.style.lineHeight = '1.4';
+          ruleEl.style.padding = `${Math.max(16, size * 6)}px ${Math.max(40, size * 10)}px`;
+        }
+        answerEl.style.fontSize = `${Math.max(1.2, size * 0.6)}rem`;
         answerEl.style.lineHeight = '1.45';
-        answerEl.style.padding = `${Math.max(16, size * 6)}px ${Math.max(40, size * 10)}px`;
-        if (ruleEl) ruleEl.style.fontSize = `${Math.max(1.2, size * 0.55)}rem`;
+        answerEl.style.padding = `${Math.max(12, size * 4)}px ${Math.max(30, size * 8)}px`;
       };
 
       // Start at 6rem and shrink by 0.1rem — matches question sizing
@@ -360,7 +365,7 @@ export default function DisplayPage() {
           </div>
           <div
             data-act-question
-            className="text-center mx-auto max-w-[95%]"
+            className="text-center mx-auto max-w-[95%] [&_b]:underline [&_strong]:underline"
             style={{ fontSize: '3.5rem', lineHeight: '1.45' }}
             dangerouslySetInnerHTML={{ __html: bellringer.act_question || '' }}
           />
@@ -394,16 +399,29 @@ export default function DisplayPage() {
         <div ref={actAnswerRef} className="flex-1 flex flex-col justify-center items-center gap-5 overflow-hidden min-h-0 px-4" style={{ opacity: 0 }}>
           <div
             data-act-answer
-            className="font-bold text-center rounded-2xl shrink-0"
-            style={{ background: '#FFFF00', color: '#111', padding: '20px 60px', fontSize: '5rem' }}
-          >
-            {actAnswerText}
-          </div>
+            className="text-center rounded-2xl shrink-0 max-w-[95%]"
+            style={{
+              background: 'rgba(78, 205, 196, 0.12)',
+              border: '2px solid #4ECDC4',
+              color: '#FFFFFF',
+              padding: '16px 40px',
+              fontSize: '2.5rem',
+              lineHeight: '1.45',
+            }}
+            dangerouslySetInnerHTML={{ __html: actAnswerText }}
+          />
           {bellringer.act_rule && (
             <div
               data-act-rule
-              className="font-semibold text-center rounded-2xl max-w-[95%] shrink-0"
-              style={{ background: '#FFFF00', color: '#111', padding: '16px 40px', fontSize: '2rem' }}
+              className="text-center rounded-2xl max-w-[95%] shrink-0"
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: '#FFFFFF',
+                padding: '20px 50px',
+                fontSize: '5rem',
+                lineHeight: '1.4',
+              }}
             >
               {bellringer.act_rule}
             </div>

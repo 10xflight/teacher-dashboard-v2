@@ -19,6 +19,46 @@ const JOURNAL_TYPE_OPTIONS = [
   { value: 'would_you_rather', label: 'Would You Rather' },
 ];
 
+const ACT_SKILL_OPTIONS = [
+  { value: '', label: 'Random (vary automatically)' },
+  { value: 'Commas — Introductory Phrases', label: 'Commas — Introductory Phrases' },
+  { value: 'Commas — Compound Sentences', label: 'Commas — Compound Sentences' },
+  { value: 'Commas — Appositives', label: 'Commas — Appositives' },
+  { value: 'Commas — Items in a Series', label: 'Commas — Items in a Series' },
+  { value: 'Commas — Coordinate Adjectives', label: 'Commas — Coordinate Adjectives' },
+  { value: 'Commas — Restrictive vs Nonrestrictive', label: 'Commas — Restrictive vs Nonrestrictive' },
+  { value: 'Apostrophes — Possessives vs Plurals', label: 'Apostrophes — Possessives vs Plurals' },
+  { value: 'Apostrophes — Its/It\'s', label: 'Apostrophes — Its/It\'s' },
+  { value: 'Apostrophes — Whose/Who\'s', label: 'Apostrophes — Whose/Who\'s' },
+  { value: 'Semicolons — Joining Independent Clauses', label: 'Semicolons — Joining Independent Clauses' },
+  { value: 'Colons — Before Lists', label: 'Colons — Before Lists' },
+  { value: 'Semicolons vs Commas', label: 'Semicolons vs Commas' },
+  { value: 'Subject-Verb Agreement — Compound Subjects', label: 'Subject-Verb Agreement — Compound Subjects' },
+  { value: 'Subject-Verb Agreement — Indefinite Pronouns', label: 'Subject-Verb Agreement — Indefinite Pronouns' },
+  { value: 'Subject-Verb Agreement — Inverted Sentences', label: 'Subject-Verb Agreement — Inverted Sentences' },
+  { value: 'Subject-Verb Agreement — Collective Nouns', label: 'Subject-Verb Agreement — Collective Nouns' },
+  { value: 'Pronoun — Ambiguous Reference', label: 'Pronoun — Ambiguous Reference' },
+  { value: 'Pronoun — Antecedent Agreement', label: 'Pronoun — Antecedent Agreement' },
+  { value: 'Pronoun — Who/Whom', label: 'Pronoun — Who/Whom' },
+  { value: 'Pronoun — Case Errors (me vs I)', label: 'Pronoun — Case Errors (me vs I)' },
+  { value: 'Verb Tense — Consistency', label: 'Verb Tense — Consistency' },
+  { value: 'Verb Tense — Past Perfect vs Simple Past', label: 'Verb Tense — Past Perfect vs Simple Past' },
+  { value: 'Verb Tense — Conditional Mood', label: 'Verb Tense — Conditional Mood' },
+  { value: 'Parallelism', label: 'Parallelism' },
+  { value: 'Dangling Modifiers', label: 'Dangling Modifiers' },
+  { value: 'Misplaced Modifiers', label: 'Misplaced Modifiers' },
+  { value: 'Adjective vs Adverb', label: 'Adjective vs Adverb' },
+  { value: 'Wordiness & Redundancy', label: 'Wordiness & Redundancy' },
+  { value: 'Fragments', label: 'Fragments' },
+  { value: 'Run-ons & Comma Splices', label: 'Run-ons & Comma Splices' },
+  { value: 'Subordination vs Coordination', label: 'Subordination vs Coordination' },
+  { value: 'Word Choice — Affect/Effect', label: 'Word Choice — Affect/Effect' },
+  { value: 'Word Choice — Than/Then', label: 'Word Choice — Than/Then' },
+  { value: 'Word Choice — Accept/Except', label: 'Word Choice — Accept/Except' },
+  { value: 'Word Choice — Less/Fewer', label: 'Word Choice — Less/Fewer' },
+  { value: 'Word Choice — Lie/Lay', label: 'Word Choice — Lie/Lay' },
+];
+
 interface PromptSlot {
   journal_type: string;
   journal_prompt: string;
@@ -69,10 +109,13 @@ export default function BellringerEditPage() {
     act_skill: '', act_question: '', act_choices: '', act_correct_answer: 'A', act_rule: '',
   });
   const [teacherNotes, setTeacherNotes] = useState('');
+  const [actSkillFilter, setActSkillFilter] = useState('');
   const [generating, setGenerating] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [toast, setToast] = useState<{ message: string; isError?: boolean } | null>(null);
+  const [copyToOpen, setCopyToOpen] = useState(false);
+  const copyToDateRef = useRef<HTMLInputElement>(null);
   const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const loaded = useRef(false);
   const datePickerRef = useRef<HTMLInputElement>(null);
@@ -91,6 +134,14 @@ export default function BellringerEditPage() {
     return `${dayName} ${mm}/${dd}/${yy}`;
   }
 
+  // Guard date changes — warn if unsaved edits
+  function changeDate(newDate: string) {
+    if (dirty) {
+      if (!confirm('You have unsaved changes. Leave without saving?')) return;
+    }
+    setViewDate(newDate);
+  }
+
   // Step date by N days, skipping weekends
   function stepDate(days: number) {
     const d = new Date(viewDate + 'T12:00:00');
@@ -100,7 +151,38 @@ export default function BellringerEditPage() {
       d.setDate(d.getDate() + dir);
       if (d.getDay() !== 0 && d.getDay() !== 6) steps--;
     }
-    setViewDate(localDateStr(d));
+    changeDate(localDateStr(d));
+  }
+
+  // Save current content to a different date (copy to)
+  async function copyToDate(targetDate: string) {
+    setSaving(true);
+    try {
+      const saveRes = await fetch('/api/bellringers/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: targetDate, prompts: getPromptPayloads(), ...getACTPayload() }),
+      });
+      if (!saveRes.ok) {
+        const err = await saveRes.json().catch(() => ({}));
+        showToast(err.error || 'Save failed', true);
+        return;
+      }
+      await fetch('/api/bellringers/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: targetDate }),
+      });
+      showToast(`Saved to ${formatDateChip(targetDate)}`);
+      setCopyToOpen(false);
+      // Navigate to the target date
+      setDirty(false);
+      setViewDate(targetDate);
+    } catch {
+      showToast('Failed to save', true);
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Mark dirty on any user change (but not on initial load)
@@ -134,7 +216,7 @@ export default function BellringerEditPage() {
           const slots: PromptSlot[] = [0, 1, 2, 3].map(i => {
             const p = data.prompts.find((pr: { slot: number }) => pr.slot === i);
             return {
-              journal_type: p?.journal_type || 'creative',
+              journal_type: p?.journal_type || ['creative', 'quote', 'emoji', 'reflective'][i],
               journal_prompt: p?.journal_prompt || '',
               journal_subprompt: p?.journal_subprompt || 'WRITE A PARAGRAPH IN YOUR JOURNAL!',
               image_path: p?.image_path || null,
@@ -308,42 +390,56 @@ export default function BellringerEditPage() {
   async function generateAll() {
     setGenerating('all');
     try {
-      const res = await fetch('/api/bellringers/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: viewDate, notes: teacherNotes }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (data.prompts) {
-          const slots: PromptSlot[] = [0, 1, 2, 3].map(i => {
-            const p = data.prompts.find((pr: { slot: number }) => pr.slot === i);
-            return {
-              journal_type: p?.journal_type || prompts[i].journal_type,
-              journal_prompt: p?.journal_prompt || prompts[i].journal_prompt,
-              journal_subprompt: p?.journal_subprompt || subprompt,
-              image_path: prompts[i].image_path,
-            };
-          });
-          setPrompts(slots);
-        }
-        const b = data.bellringer;
-        if (b) {
-          const choices = [b.act_choice_a, b.act_choice_b, b.act_choice_c, b.act_choice_d]
-            .filter(Boolean).join('\n');
-          setAct({
-            act_skill: b.act_skill || '',
-            act_question: b.act_question || '',
-            act_choices: choices,
-            act_correct_answer: b.act_correct_answer || 'A',
-            act_rule: b.act_rule || '',
-          });
-        }
-        setDirty(false);
-        showToast('Generated & saved!');
+      // Generate prompts (with teacher notes) and ACT (without notes, with skill) in parallel
+      const [promptsRes, actRes] = await Promise.all([
+        fetch('/api/bellringers/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: viewDate, notes: teacherNotes, promptsOnly: true }),
+        }),
+        fetch('/api/bellringers/generate-act', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: viewDate, skill: actSkillFilter || undefined }),
+        }),
+      ]);
+
+      const promptsData = await promptsRes.json();
+      const actData = await actRes.json();
+
+      let ok = true;
+      if (promptsRes.ok && promptsData.prompts) {
+        const slots: PromptSlot[] = [0, 1, 2, 3].map(i => {
+          const p = promptsData.prompts.find((pr: { slot: number }) => pr.slot === i);
+          return {
+            journal_type: p?.journal_type || prompts[i].journal_type,
+            journal_prompt: p?.journal_prompt || prompts[i].journal_prompt,
+            journal_subprompt: p?.journal_subprompt || subprompt,
+            image_path: prompts[i].image_path,
+          };
+        });
+        setPrompts(slots);
       } else {
-        showToast(data.error || 'Generation failed', true);
+        ok = false;
       }
+
+      if (actRes.ok && actData.bellringer) {
+        const b = actData.bellringer;
+        const choices = [b.act_choice_a, b.act_choice_b, b.act_choice_c, b.act_choice_d]
+          .filter(Boolean).join('\n');
+        setAct({
+          act_skill: b.act_skill || '',
+          act_question: b.act_question || '',
+          act_choices: choices,
+          act_correct_answer: b.act_correct_answer || 'A',
+          act_rule: b.act_rule || '',
+        });
+      } else {
+        ok = false;
+      }
+
+      setDirty(false);
+      showToast(ok ? 'Generated & saved!' : 'Partially generated — check for errors', !ok);
     } catch {
       showToast('Failed to generate', true);
     } finally {
@@ -367,8 +463,16 @@ export default function BellringerEditPage() {
       const data = await res.json();
       if (res.ok) {
         const p = data.prompt;
-        updatePrompt(slot, 'journal_type', p?.journal_type || prompts[slot].journal_type);
-        updatePrompt(slot, 'journal_prompt', p?.journal_prompt || '');
+        setPrompts(prev => {
+          const next = [...prev];
+          next[slot] = {
+            ...next[slot],
+            journal_type: p?.journal_type || next[slot].journal_type,
+            journal_prompt: p?.journal_prompt || '',
+          };
+          return next;
+        });
+        markDirty();
         showToast(`Prompt ${slot + 1} regenerated!`);
       } else {
         showToast(data.error || 'Failed', true);
@@ -386,7 +490,7 @@ export default function BellringerEditPage() {
       const res = await fetch('/api/bellringers/generate-act', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: viewDate }),
+        body: JSON.stringify({ date: viewDate, skill: actSkillFilter || undefined }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -487,7 +591,7 @@ export default function BellringerEditPage() {
   return (
     <div className="-m-4 md:-m-6 lg:-m-8 min-h-full" style={{ background: '#1a1a2e' }}>
       {/* Header */}
-      <header className="z-50 flex items-center px-4 py-2.5 border-b border-[#2d3f5f] gap-2 flex-wrap"
+      <header className="sticky -top-4 md:-top-6 lg:-top-8 z-50 flex items-center px-4 pb-2.5 pt-[1.625rem] md:pt-[2.125rem] lg:pt-[2.625rem] border-b border-[#2d3f5f] gap-2 flex-wrap"
         style={{ background: '#16213e' }}>
         <h1 className="text-lg font-bold tracking-wide text-white whitespace-nowrap mr-1">
           Bellringer
@@ -516,7 +620,7 @@ export default function BellringerEditPage() {
               ref={datePickerRef}
               type="date"
               value={viewDate}
-              onChange={e => { if (e.target.value) setViewDate(e.target.value); }}
+              onChange={e => { if (e.target.value) changeDate(e.target.value); }}
               className="absolute inset-0 opacity-0 cursor-pointer"
             />
           </button>
@@ -530,26 +634,62 @@ export default function BellringerEditPage() {
           </button>
           {viewDate !== localDateStr() && (
             <button
-              onClick={() => setViewDate(localDateStr())}
+              onClick={() => changeDate(localDateStr())}
               className="ml-0.5 px-2 py-1 text-xs text-[#4ECDC4] bg-[#253352] border border-[#2d3f5f] rounded-lg hover:bg-[#344868] transition-colors"
             >
               Today
             </button>
           )}
 
-          {/* Assign / Clear — right next to the date chip */}
+          {/* Save / Copy to / Clear */}
           <button
-            className={`ml-1 px-3 py-1.5 text-sm font-semibold rounded-lg transition-all disabled:opacity-50 ${
-              dateAssigned
-                ? 'bg-[#2a3a5c] text-[#a8b2d1] hover:bg-[#344868]'
-                : 'bg-[#4ECDC4] text-[#1a1a2e] hover:brightness-110'
-            }`}
+            className="ml-1 px-3 py-1.5 text-sm font-semibold rounded-lg transition-all disabled:opacity-50 bg-[#4ECDC4] text-[#1a1a2e] hover:brightness-110"
             onClick={assignToDate}
             disabled={saving}
           >
-            {saving ? 'Saving...' : dateAssigned ? 'Reassign' : 'Assign'}
+            {saving ? 'Saving...' : 'Save'}
             {saving && <Spinner />}
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setCopyToOpen(!copyToOpen)}
+              className="px-2.5 py-1.5 text-sm text-[#a8b2d1] bg-[#2a3a5c] rounded-lg font-semibold hover:bg-[#344868] transition-colors"
+              title="Save current content to a different date"
+            >
+              Assign to&hellip;
+            </button>
+            {copyToOpen && (
+              <>
+                <div className="fixed inset-0 z-[55]" onClick={() => setCopyToOpen(false)} />
+                <div className="absolute top-full left-0 mt-1 bg-[#16213e] border border-[#2d3f5f] rounded-lg p-3 shadow-xl z-[60] w-[220px]">
+                  <p className="text-xs text-[#a8b2d1] mb-2">Assign this bellringer to:</p>
+                  <input
+                    ref={copyToDateRef}
+                    type="date"
+                    className="w-full px-2.5 py-1.5 bg-[#253352] border border-[#2d3f5f] rounded-lg text-white text-sm focus:border-[#4ECDC4] focus:outline-none mb-2"
+                  />
+                  <div className="flex gap-1.5">
+                    <button
+                      className="flex-1 px-2.5 py-1.5 text-xs bg-[#4ECDC4] text-[#1a1a2e] rounded-lg font-semibold hover:brightness-110 disabled:opacity-50"
+                      disabled={saving}
+                      onClick={() => {
+                        const val = copyToDateRef.current?.value;
+                        if (val) copyToDate(val);
+                      }}
+                    >
+                      Assign
+                    </button>
+                    <button
+                      className="px-2.5 py-1.5 text-xs text-[#a8b2d1] bg-[#2a3a5c] rounded-lg font-semibold hover:bg-[#344868]"
+                      onClick={() => setCopyToOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           {dateAssigned && (
             <button
               onClick={clearFromDate}
@@ -590,7 +730,7 @@ export default function BellringerEditPage() {
           />
           <div className="flex gap-2 mt-2 items-center">
             <button className={btn} onClick={generateAll} disabled={generating === 'all'}>
-              {generating === 'all' ? 'Generating...' : 'Generate All from Idea'}
+              {generating === 'all' ? 'Generating...' : 'Generate All'}
               {generating === 'all' && <Spinner />}
             </button>
             <span className="text-xs text-[#6c7a96]">or generate individually below</span>
@@ -689,14 +829,17 @@ export default function BellringerEditPage() {
 
         <div className="mb-4">
           <label className="block text-xs uppercase tracking-wider text-[#4ECDC4] font-semibold mb-1">
-            Skill (e.g. Comma Rules, Apostrophes, Vocab in Context)
+            Skill to Generate
           </label>
-          <input
-            type="text"
-            value={act.act_skill}
-            onChange={e => { setAct(prev => ({ ...prev, act_skill: e.target.value })); markDirty(); }}
+          <select
+            value={actSkillFilter}
+            onChange={e => setActSkillFilter(e.target.value)}
             className={inputCls}
-          />
+          >
+            {ACT_SKILL_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
 
         <div className="mb-4">
@@ -711,7 +854,7 @@ export default function BellringerEditPage() {
             id="act-question"
             value={act.act_question}
             onChange={e => { setAct(prev => ({ ...prev, act_question: e.target.value })); markDirty(); }}
-            className={`${inputCls} min-h-[60px] resize-y`}
+            className={`${inputCls} min-h-[60px] resize-y font-light`}
           />
         </div>
 
