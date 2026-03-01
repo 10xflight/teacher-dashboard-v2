@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import type { Bellringer, BellringerPrompt, PromptCard } from '@/lib/types';
 import { TYPE_LABELS } from '@/lib/types';
-import { localDateStr } from '@/lib/task-helpers';
+import { localDateStr, nextSchoolDay } from '@/lib/task-helpers';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Card accent colors matching v1 display
@@ -28,7 +28,7 @@ function splitEmojis(text: string): { instruction: string; emojis: string } {
 export default function DisplayPage() {
   const params = useParams();
   const dateStr = params.date === 'today'
-    ? localDateStr()
+    ? nextSchoolDay()
     : String(params.date);
 
   const [bellringer, setBellringer] = useState<Bellringer | null>(null);
@@ -87,7 +87,7 @@ export default function DisplayPage() {
 
       setPromptCards(cards);
 
-      // Build answer text
+      // Build answer text — substitute the correct fragment into the full sentence
       const letter = (b.act_correct_answer || '').trim().toUpperCase();
       const choiceMap: Record<string, string> = {
         A: b.act_choice_a || '',
@@ -95,7 +95,18 @@ export default function DisplayPage() {
         C: b.act_choice_c || '',
         D: b.act_choice_d || '',
       };
-      setActAnswerText(choiceMap[letter] || letter);
+      const correctChoice = choiceMap[letter] || letter;
+      // Strip "A. " prefix from the fragment
+      const fragment = correctChoice.replace(/^[A-D]\.\s*/, '');
+      const question = b.act_question || '';
+      // Replace <b> tags with a styled highlight span for the corrected part
+      if (/<b>.*?<\/b>/i.test(question) && fragment.toUpperCase() !== 'NO CHANGE') {
+        const plain = question.replace(/<b>.*?<\/b>/i, `<span class="act-highlight">${fragment}</span>`);
+        setActAnswerText(plain);
+      } else {
+        // NO CHANGE — show original sentence without bold tags
+        setActAnswerText(question.replace(/<\/?b>/gi, ''));
+      }
       setLoading(false);
     } catch {
       setLoading(false);
@@ -249,10 +260,15 @@ export default function DisplayPage() {
 
       const answerEl = container.querySelector('[data-act-answer]') as HTMLElement;
       const ruleEl = container.querySelector('[data-act-rule]') as HTMLElement;
+      const letterEl = container.querySelector('[data-act-letter]') as HTMLElement;
 
       if (!answerEl) { container.style.opacity = '1'; return; }
 
       const applySize = (size: number) => {
+        // Letter is the biggest element
+        if (letterEl) {
+          letterEl.style.fontSize = `${Math.max(2, size * 1.2)}rem`;
+        }
         // Rule/explanation is the hero text, answer is secondary
         if (ruleEl) {
           ruleEl.style.fontSize = `${size}rem`;
@@ -397,6 +413,10 @@ export default function DisplayPage() {
         style={{ padding: '12px 60px 12px' }}
       >
         <div ref={actAnswerRef} className="flex-1 flex flex-col justify-center items-center gap-5 overflow-hidden min-h-0 px-4" style={{ opacity: 0 }}>
+          {/* Answer letter */}
+          <div data-act-letter className="shrink-0 text-center font-bold" style={{ color: '#4ECDC4', fontSize: '5rem', lineHeight: 1 }}>
+            {(bellringer.act_correct_answer || '').trim().toUpperCase()}
+          </div>
           <div
             data-act-answer
             className="text-center rounded-2xl shrink-0 max-w-[95%]"
@@ -423,7 +443,9 @@ export default function DisplayPage() {
                 lineHeight: '1.4',
               }}
             >
-              {bellringer.act_rule}
+              {(bellringer.act_rule || '')
+                .replace(/["\u201C\u201D]/g, '')
+                .replace(/['\u2018\u2019]([^'\u2018\u2019]+)['\u2018\u2019]/g, '$1')}
             </div>
           )}
         </div>

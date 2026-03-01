@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ date: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { date } = await params;
 
     // Validate date format (YYYY-MM-DD)

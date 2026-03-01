@@ -4,8 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import DayDetailModal from '@/components/DayDetailModal';
 import TaskTable from '@/components/TaskTable';
+import EmailTaskQueue from '@/components/EmailTaskQueue';
+import { DashboardStatsSkeleton, WeekStripSkeleton, TaskTableSkeleton, LessonsSkeleton } from '@/components/Skeleton';
 import type { Task } from '@/lib/types';
-import { localDateStr } from '@/lib/task-helpers';
+import { localDateStr, nextSchoolDay } from '@/lib/task-helpers';
+import EmptyState from '@/components/EmptyState';
 
 interface CalendarEvent {
   id: number;
@@ -65,10 +68,12 @@ function getWeekdays(count = 5): string[] {
 
 export default function Dashboard() {
   const today = localDateStr();
+  const schoolDay = nextSchoolDay();
 
   const [weekdayDates] = useState(() => getWeekdays(5));
   const [weekDays, setWeekDays] = useState<WeekDay[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Today's lessons state
   const [todayActivities, setTodayActivities] = useState<ActivityData[]>([]);
@@ -172,13 +177,37 @@ export default function Dashboard() {
     loadCountdowns();
   }, [today]);
 
-  // Load classes and today's activities
+  // Load classes and today's/next school day's activities
   useEffect(() => {
-    fetch('/api/classes').then(r => r.json()).then(setClasses).catch(() => {});
-    fetch(`/api/day/${today}`).then(r => r.json()).then(data => {
-      setTodayActivities(data.activities || []);
-    }).catch(() => {});
-  }, [today]);
+    Promise.all([
+      fetch('/api/classes').then(r => r.json()).then(setClasses).catch(() => {}),
+      fetch(`/api/day/${schoolDay}`).then(r => r.json()).then(data => {
+        setTodayActivities(data.activities || []);
+      }).catch(() => {}),
+    ]).finally(() => setLoading(false));
+  }, [schoolDay]);
+
+  // Email stale-check: auto-fetch if >30 min since last check
+  useEffect(() => {
+    async function checkStale() {
+      try {
+        const res = await fetch('/api/settings');
+        const settings = await res.json();
+        if (settings.ms_email_enabled !== 'true') return;
+
+        const lastFetch = settings.ms_last_fetch;
+        if (!lastFetch) return;
+
+        const elapsed = Date.now() - new Date(lastFetch).getTime();
+        const THIRTY_MIN = 30 * 60 * 1000;
+        if (elapsed > THIRTY_MIN) {
+          // Fire-and-forget background fetch
+          fetch('/api/email/fetch', { method: 'POST' }).catch(() => {});
+        }
+      } catch { /* ignore */ }
+    }
+    checkStale();
+  }, []);
 
   // Group today's activities by class
   const activitiesByClass: Record<number, ActivityData[]> = {};
@@ -237,11 +266,11 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href={`/bellringer/edit/${today}`}
+          <Link href={`/bellringer/edit/${schoolDay}`}
             className="px-4 py-2 bg-accent text-bg-primary rounded-lg font-semibold text-sm hover:brightness-110">
             Edit Bellringer
           </Link>
-          <a href={`/display/${today}`} target="_blank" rel="noopener noreferrer"
+          <a href={`/display/${schoolDay}`} target="_blank" rel="noopener noreferrer"
             className="px-4 py-2 bg-accent-yellow text-[#111] rounded-lg font-bold text-sm hover:brightness-110">
             Display on TV
           </a>
@@ -249,7 +278,8 @@ export default function Dashboard() {
       </div>
 
       {/* Countdown Stats */}
-      {(gradingEnd || semesterEnd || nextDayOff) && (
+      {loading && <DashboardStatsSkeleton />}
+      {!loading && (gradingEnd || semesterEnd || nextDayOff) && (
         <div className="flex flex-wrap gap-3">
           {nextDayOff && (
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-card border border-border">
@@ -280,7 +310,8 @@ export default function Dashboard() {
             See full calendar
           </Link>
         </div>
-        <div className="grid grid-cols-5 gap-3">
+        {weekDays.length === 0 && <WeekStripSkeleton />}
+        <div className={`grid grid-cols-5 gap-3 ${weekDays.length === 0 ? 'hidden' : ''}`}>
           {weekDays.map(day => {
             const pendingTasks = day.tasks.filter(t => !t.is_done);
             return (
@@ -327,7 +358,7 @@ export default function Dashboard() {
                   </div>
                 )}
                 {day.events.length === 0 && pendingTasks.length === 0 && !day.hasBellringer && (
-                  <div className="text-sm text-text-muted mt-2">No events</div>
+                  <div className="text-sm text-text-muted/50 mt-2 italic">No events</div>
                 )}
               </button>
             );
@@ -335,6 +366,15 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Email Task Queue — only renders when there are pending items */}
+      <EmailTaskQueue onTaskCreated={loadWeekDays} />
+
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <TaskTableSkeleton />
+          <LessonsSkeleton />
+        </div>
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Tasks — managed by TaskTable */}
         <TaskTable onTasksChanged={loadWeekDays} />
@@ -342,7 +382,12 @@ export default function Dashboard() {
         {/* Today's Lessons */}
         <div className="rounded-xl bg-bg-card border border-border p-5">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-text-primary">Today&apos;s Lessons</h2>
+            <h2 className="text-lg font-semibold text-text-primary">
+              {today === schoolDay ? "Today\u2019s Lessons" : `${new Date(schoolDay + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })}\u2019s Lessons`}
+              <span className="text-sm font-normal text-text-muted ml-2">
+                {new Date(schoolDay + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </span>
+            </h2>
             <div className="flex items-center gap-2">
               <Link href={`/sub`} className="text-xs text-text-secondary hover:text-accent transition-colors">Sub Pack</Link>
               <Link href="/lesson-plans" className="text-xs text-accent hover:underline">Plans</Link>
@@ -400,17 +445,24 @@ export default function Dashboard() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-text-muted">No activities planned</p>
+                      <p className="text-xs text-text-muted italic">No activities planned</p>
                     )}
                   </div>
                 );
               })}
             </div>
           ) : (
-            <p className="text-sm text-text-muted">No classes configured yet.</p>
+            <EmptyState
+              preset="classes"
+              title="No Classes Configured"
+              description="Add your class schedule in Settings to see today's lessons here."
+              action={{ label: 'Go to Settings', href: '/settings' }}
+              compact
+            />
           )}
         </div>
       </div>
+      )}
 
       {/* Day Detail Modal */}
       {selectedDate && (

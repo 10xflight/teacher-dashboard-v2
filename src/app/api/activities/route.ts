@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     const class_id = searchParams.get('class_id');
@@ -37,6 +41,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
     const { class_id, date, title, description, activity_type, lesson_plan_id, material_status, sort_order } = body;
 
@@ -55,6 +63,7 @@ export async function POST(request: NextRequest) {
         lesson_plan_id: lesson_plan_id || null,
         material_status: material_status || 'not_needed',
         sort_order: sort_order ?? 0,
+        user_id: user.id,
       })
       .select('*, classes(name, periods, color)')
       .single();

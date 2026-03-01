@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, getOrCreateBellringer } from '@/lib/db';
+import { getOrCreateBellringer } from '@/lib/db';
 import { generateFromImage } from '@/lib/bellringer-generator';
+import { requireAuth } from '@/lib/auth';
+
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const formData = await request.formData();
     const imageFile = formData.get('image') as File | null;
     const date = formData.get('date') as string | null;
@@ -14,6 +21,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'image, date, and slot are required' },
         { status: 400 }
+      );
+    }
+
+    // Enforce file size limit
+    if (imageFile.size > MAX_IMAGE_SIZE) {
+      return NextResponse.json(
+        { error: 'Image too large. Maximum size is 10MB.' },
+        { status: 413 }
       );
     }
 
@@ -47,7 +62,7 @@ export async function POST(request: NextRequest) {
     const publicUrl = publicUrlData.publicUrl;
 
     // Get or create bellringer
-    const { id: bellringerId } = await getOrCreateBellringer(date);
+    const { id: bellringerId } = await getOrCreateBellringer(date, supabase, user.id);
 
     // Update bellringer_prompts image_path
     const { error: upsertError } = await supabase

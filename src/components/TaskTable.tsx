@@ -49,7 +49,8 @@ export default function TaskTable({ onTasksChanged }: TaskTableProps) {
   function getWeekRange(offset: number) {
     const now = new Date();
     const day = now.getDay();
-    const mondayDiff = day === 0 ? -6 : 1 - day;
+    // After Friday (Sat/Sun), advance to next week's Monday
+    const mondayDiff = day === 0 ? 1 : day === 6 ? 2 : 1 - day;
     const monday = new Date(now);
     monday.setDate(now.getDate() + mondayDiff + (offset * 7));
     const friday = new Date(monday);
@@ -321,7 +322,7 @@ export default function TaskTable({ onTasksChanged }: TaskTableProps) {
       {/* Header with sort + week nav */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-text-primary">Tasks</h2>
+          <h2 className="text-lg font-semibold text-text-primary">This Week&apos;s Tasks</h2>
           <Link href="/tasks" className="text-xs text-accent hover:underline">View All →</Link>
         </div>
         <div className="flex items-center gap-1">
@@ -514,7 +515,12 @@ export default function TaskTable({ onTasksChanged }: TaskTableProps) {
         ))}
 
         {weekTodo.length === 0 && (
-          <div className="py-3 text-center text-sm text-text-muted">No tasks this week</div>
+          <div className="flex flex-col items-center gap-1 py-5">
+            <svg className="w-5 h-5 text-text-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-text-muted">All clear this week</p>
+          </div>
         )}
       </div>
 

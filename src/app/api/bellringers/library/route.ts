@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     // Select bellringer_prompts joined with bellringers for date/status
     const { data, error } = await supabase
       .from('bellringer_prompts')

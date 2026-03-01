@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 function parseCSV(text: string): Record<string, string>[] {
   const lines = text.trim().split(/\r?\n/);
@@ -59,6 +59,10 @@ function parseCSVLine(line: string): string[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const formData = await request.formData();
     const file = formData.get('file');
 
@@ -80,6 +84,7 @@ export async function POST(request: NextRequest) {
         event_type: row.event_type || row.type || 'event',
         title: row.title || '',
         notes: row.notes || null,
+        user_id: user.id,
       }));
 
     if (events.length === 0) {

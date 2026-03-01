@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import DayDetailModal from '@/components/DayDetailModal';
+import { CalendarGridSkeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
 import type { Task } from '@/lib/types';
 import { localDateStr } from '@/lib/task-helpers';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -32,10 +34,11 @@ export default function CalendarPage() {
   const [month, setMonth] = useState(now.getMonth());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [newEvent, setNewEvent] = useState({ date: '', event_type: 'custom', title: '', notes: '' });
-  const [toast, setToast] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const today = localDateStr();
 
@@ -61,7 +64,10 @@ export default function CalendarPage() {
     } catch { /* ignore */ }
   }, [year, month]);
 
-  useEffect(() => { loadEvents(); loadTasks(); }, [loadEvents, loadTasks]);
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([loadEvents(), loadTasks()]).finally(() => setLoading(false));
+  }, [loadEvents, loadTasks]);
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
@@ -82,8 +88,7 @@ export default function CalendarPage() {
     setNewEvent({ date: '', event_type: 'custom', title: '', notes: '' });
     setShowAdd(false);
     loadEvents();
-    setToast('Event added!');
-    setTimeout(() => setToast(null), 3000);
+    showToast('Event added!');
   }
 
   async function deleteEvent(id: number, e: React.MouseEvent) {
@@ -159,7 +164,8 @@ export default function CalendarPage() {
       </div>
 
       {/* Calendar Grid */}
-      <div className="rounded-xl bg-bg-card border border-border overflow-hidden">
+      {loading && <CalendarGridSkeleton />}
+      <div className={`rounded-xl bg-bg-card border border-border overflow-hidden ${loading ? 'hidden' : ''}`}>
         {/* Day names header */}
         <div className="grid grid-cols-7 border-b border-border">
           {DAY_NAMES.map(d => (
@@ -224,12 +230,6 @@ export default function CalendarPage() {
         />
       )}
 
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-[200] px-5 py-3 rounded-lg bg-accent-green text-white font-medium shadow-lg">
-          {toast}
-        </div>
-      )}
     </div>
   );
 }

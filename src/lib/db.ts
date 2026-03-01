@@ -22,9 +22,9 @@ export const supabase = new Proxy({} as SupabaseClient, {
 });
 
 // Helper to get or create a bellringer for a date
-export async function getOrCreateBellringer(dateStr: string) {
-  const db = getSupabase();
-  const { data: existing } = await db
+export async function getOrCreateBellringer(dateStr: string, db?: SupabaseClient, userId?: string) {
+  const client = db || getSupabase();
+  const { data: existing } = await client
     .from('bellringers')
     .select('id')
     .eq('date', dateStr)
@@ -36,9 +36,12 @@ export async function getOrCreateBellringer(dateStr: string) {
     return { id: existing.id, isNew: false };
   }
 
-  const { data: created, error } = await db
+  const insertData: Record<string, unknown> = { date: dateStr, status: 'draft', is_approved: false };
+  if (userId) insertData.user_id = userId;
+
+  const { data: created, error } = await client
     .from('bellringers')
-    .insert({ date: dateStr, status: 'draft', is_approved: false })
+    .insert(insertData)
     .select('id')
     .single();
 
@@ -47,9 +50,9 @@ export async function getOrCreateBellringer(dateStr: string) {
 }
 
 // Load prompts for a bellringer
-export async function loadPrompts(bellringerId: number) {
-  const db = getSupabase();
-  const { data, error } = await db
+export async function loadPrompts(bellringerId: number, db?: SupabaseClient) {
+  const client = db || getSupabase();
+  const { data, error } = await client
     .from('bellringer_prompts')
     .select('*')
     .eq('bellringer_id', bellringerId)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { getAuthUser } from '@/lib/auth';
 
 export async function GET(
   _request: NextRequest,
@@ -33,7 +34,7 @@ export async function GET(
     // Fetch activities linked to this lesson plan
     const { data: activities } = await supabase
       .from('activities')
-      .select('id, class_id, date, title, description, activity_type, sort_order, material_status, material_content, is_done, is_graded, classes(name, periods, color)')
+      .select('id, class_id, date, title, description, activity_type, sort_order, material_status, material_content, is_done, is_graded')
       .eq('lesson_plan_id', plan.id)
       .order('date', { ascending: true })
       .order('sort_order', { ascending: true });
@@ -70,6 +71,29 @@ export async function GET(
       .eq('lesson_plan_id', plan.id)
       .order('created_at', { ascending: true });
 
+    // Fetch classes — need authenticated client to pass RLS on classes table
+    const classIds = [...new Set((activities ?? []).map((a: Record<string, unknown>) => a.class_id as number))];
+    const classMap: Record<number, { name: string; periods: string | null; color: string | null }> = {};
+    if (classIds.length > 0) {
+      // Try authenticated client first (works if viewer is logged in), fall back to anon
+      const auth = await getAuthUser();
+      const classClient = auth.user ? auth.supabase : supabase;
+      const { data: classesData } = await classClient
+        .from('classes')
+        .select('id, name, periods, color')
+        .in('id', classIds);
+
+      for (const c of classesData ?? []) {
+        classMap[c.id] = { name: c.name, periods: c.periods, color: c.color };
+      }
+    }
+
+    // Attach class info to each activity from the classMap
+    const activitiesWithClasses = activitiesWithStandards.map((act: Record<string, unknown>) => ({
+      ...act,
+      classes: classMap[act.class_id as number] || null,
+    }));
+
     // Fetch settings for school/teacher info
     const { data: settingsRows } = await supabase
       .from('settings')
@@ -83,7 +107,7 @@ export async function GET(
 
     return NextResponse.json({
       plan,
-      activities: activitiesWithStandards,
+      activities: activitiesWithClasses,
       comments: comments ?? [],
       school_name: settings.school_name || '',
       teacher_name: settings.teacher_name || '',

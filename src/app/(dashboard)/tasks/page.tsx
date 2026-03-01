@@ -4,11 +4,13 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import type { ClassInfo, Task } from '@/lib/types';
 import { parseNaturalDate, matchClass, formatShortDate, localDateStr } from '@/lib/task-helpers';
 import { ChevronDown, ChevronRight, Trash2, Check, Calendar, Search } from 'lucide-react';
+import { TasksPageSkeleton } from '@/components/Skeleton';
 
 export default function TaskArchivePage() {
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [todo, setTodo] = useState<Task[]>([]);
   const [done, setDone] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showDone, setShowDone] = useState(true);
 
   // Filter & sort
@@ -76,6 +78,9 @@ export default function TaskArchivePage() {
       .catch(() => {});
   }, []);
 
+  // Track initial load
+  const initialLoadDone = useRef(false);
+
   // Load tasks
   const loadTasks = useCallback(async () => {
     const params = new URLSearchParams();
@@ -91,7 +96,14 @@ export default function TaskArchivePage() {
     } catch { /* ignore */ }
   }, [filterClassId, sortBy, sortDir]);
 
-  useEffect(() => { loadTasks(); }, [loadTasks]);
+  useEffect(() => {
+    loadTasks().finally(() => {
+      if (!initialLoadDone.current) {
+        initialLoadDone.current = true;
+        setLoading(false);
+      }
+    });
+  }, [loadTasks]);
 
   // Apply text search filter
   const searchLower = searchText.toLowerCase();
@@ -264,6 +276,14 @@ export default function TaskArchivePage() {
       setShowClassDropdown(null);
       setClassHighlight(-1);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto">
+        <TasksPageSkeleton />
+      </div>
+    );
   }
 
   return (

@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { parseBrainstormToActivities } from '@/lib/lesson-plan-generator';
 import { tagActivityWithStandards } from '@/lib/standards-tagger';
 
 /**
  * Calculate Mon-Fri dates for a given week_of date string (YYYY-MM-DD).
- * week_of should be a Monday, but we handle any day by finding that week's Monday.
  */
 function getWeekDates(weekOf: string): string[] {
   const d = new Date(weekOf + 'T12:00:00');
-  // Find Monday of that week
   const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day; // Sunday → go back 6, otherwise go to Monday
+  const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
 
   const dates: string[] = [];
@@ -25,8 +23,12 @@ function getWeekDates(weekOf: string): string[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
-    const { lesson_plan_id } = body;
+    const { lesson_plan_id, class_id } = body;
 
     if (!lesson_plan_id) {
       return NextResponse.json(
@@ -76,11 +78,13 @@ export async function POST(request: NextRequest) {
     // Calculate week dates
     const weekDates = getWeekDates(plan.week_of);
 
-    // Parse brainstorm into activities
+    // Parse brainstorm into activities (optionally scoped to one class)
+    const targetClassId = class_id ? parseInt(class_id) : undefined;
     const { result, error: parseError } = await parseBrainstormToActivities(
       history,
       classes,
-      weekDates
+      weekDates,
+      targetClassId
     );
 
     if (parseError || !result) {
@@ -90,11 +94,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Delete existing activities for this lesson plan (re-generate replaces old ones)
-    await supabase
+    // Delete existing activities for this lesson plan
+    let deleteQuery = supabase
       .from('activities')
       .delete()
       .eq('lesson_plan_id', lesson_plan_id);
+
+    if (targetClassId) {
+      deleteQuery = deleteQuery.eq('class_id', targetClassId);
+    }
+
+    await deleteQuery;
 
     // Create activity rows in DB
     const allActivities: Record<string, unknown>[] = [];
@@ -110,6 +120,7 @@ export async function POST(request: NextRequest) {
           activity_type: act.activity_type || 'lesson',
           material_status: act.material_status || 'not_needed',
           sort_order: i,
+          user_id: user.id,
         });
       }
     }
@@ -149,7 +160,6 @@ export async function POST(request: NextRequest) {
       taggingSummary.push({ activity_id: actId, codes: tagResult.codes, error: tagResult.error });
 
       if (tagResult.codes.length > 0) {
-        // Look up standard IDs from codes
         const { data: standardRows } = await supabase
           .from('standards')
           .select('id, code')

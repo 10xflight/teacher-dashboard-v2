@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { sendPrincipalNotification } from '@/lib/email-service';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const body = await request.json();
     const { lesson_plan_id } = body;
 

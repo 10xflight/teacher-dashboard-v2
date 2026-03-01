@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Anthropic from '@anthropic-ai/sdk';
-import { supabase } from './db';
+import { createSupabaseServer } from './supabase-server';
 
 // ============================================================
 // Provider types
@@ -19,28 +19,28 @@ interface AIConfig {
 // Settings helpers
 // ============================================================
 
-/** Fetch all AI-related settings from the DB. */
+/** Fetch AI config: API keys from env vars, provider/model from authenticated DB. */
 export async function getAIConfig(): Promise<AIConfig> {
-  const { data } = await supabase
-    .from('settings')
-    .select('key, value')
-    .in('key', [
-      'ai_provider',
-      'gemini_api_key',
-      'anthropic_api_key',
-      'gemini_model',
-      'anthropic_model',
-    ]);
+  // Provider and model preferences come from the DB (non-secret)
+  let map: Record<string, string> = {};
+  try {
+    const supabase = await createSupabaseServer();
+    const { data } = await supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['ai_provider', 'gemini_model', 'anthropic_model']);
 
-  const map: Record<string, string> = {};
-  for (const row of data || []) {
-    map[row.key] = row.value;
+    for (const row of data || []) {
+      map[row.key] = row.value;
+    }
+  } catch {
+    // If cookies aren't available (e.g. background job), use defaults
   }
 
   return {
     provider: (map.ai_provider as AIProvider) || 'gemini',
-    geminiApiKey: map.gemini_api_key || process.env.GEMINI_API_KEY || '',
-    anthropicApiKey: map.anthropic_api_key || process.env.ANTHROPIC_API_KEY || '',
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
     geminiModel: map.gemini_model || 'gemini-2.5-flash',
     anthropicModel: map.anthropic_model || 'claude-sonnet-4-20250514',
   };
@@ -341,13 +341,66 @@ export function normalizeActFields(result: Record<string, unknown>): Record<stri
   }
   if (!result.act_explanation) result.act_explanation = '';
   if (!result.act_skill_category) result.act_skill_category = '';
+
+  // Strip quotation marks wrapping words in the rule — they confuse students in a grammar context
+  // Handles: "word", 'word', \u201Cword\u201D, \u2018word\u2019 — but keeps apostrophes inside words (it's, don't)
+  if (result.act_rule && typeof result.act_rule === 'string') {
+    result.act_rule = result.act_rule
+      .replace(/["\u201C\u201D]/g, '')
+      .replace(/['\u2018\u2019]([^'\u2018\u2019]+)['\u2018\u2019]/g, '$1');
+  }
+
+  // Shuffle answer choices so the correct answer isn't always A
+  shuffleActChoices(result);
+
   return result;
+}
+
+/** Randomly reorder ACT choices A-D, updating the correct answer letter to match. */
+function shuffleActChoices(result: Record<string, unknown>) {
+  const keys = ['act_choice_a', 'act_choice_b', 'act_choice_c', 'act_choice_d'] as const;
+  const letters = ['A', 'B', 'C', 'D'] as const;
+
+  // Need all 4 choices and a correct answer to shuffle
+  const choices = keys.map(k => result[k]);
+  if (choices.some(c => !c)) return;
+  const correct = String(result.act_correct_answer || '').trim().toUpperCase();
+  const correctIdx = letters.indexOf(correct as typeof letters[number]);
+  if (correctIdx === -1) return;
+
+  // Strip leading "A. ", "B. " etc. from choice text
+  const stripped = choices.map(c => String(c).replace(/^[A-D]\.\s*/, ''));
+  const correctText = stripped[correctIdx];
+
+  // Fisher-Yates shuffle
+  const indices = [0, 1, 2, 3];
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+
+  // Apply shuffle — re-label with new letter prefixes
+  let newCorrectLetter = 'A';
+  for (let i = 0; i < 4; i++) {
+    const srcIdx = indices[i];
+    result[keys[i]] = `${letters[i]}. ${stripped[srcIdx]}`;
+    if (srcIdx === correctIdx) {
+      newCorrectLetter = letters[i];
+    }
+  }
+
+  result.act_correct_answer = newCorrectLetter;
+  result.act_answer = newCorrectLetter;
+
+  // Also update act_choices if present (combined string)
+  result.act_choices = keys.map(k => String(result[k])).join('\n');
 }
 
 export async function buildContext() {
   const today = new Date();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+  const supabase = await createSupabaseServer();
   const { data: recent } = await supabase
     .from('bellringers')
     .select('journal_type, journal_prompt, act_skill')

@@ -107,9 +107,10 @@ export async function buildFullContext(options?: ContextOptions): Promise<FullCo
   const todayDate = new Date(today + 'T12:00:00');
   const dayOfWeek = dayNames[todayDate.getDay()];
 
-  // Calculate this week's Monday and Friday
+  // Calculate the relevant week's Monday and Friday
+  // After Friday (Sat/Sun), advance to next week's Monday
   const dayNum = todayDate.getDay();
-  const mondayOffset = dayNum === 0 ? -6 : 1 - dayNum;
+  const mondayOffset = dayNum === 0 ? 1 : dayNum === 6 ? 2 : 1 - dayNum;
   const monday = new Date(todayDate);
   monday.setDate(todayDate.getDate() + mondayOffset);
   const friday = new Date(monday);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { getAIConfig, getGeminiModel, generateWithRetry } from '@/lib/ai-service';
 
 const PARSE_SYSTEM_PROMPT = `You are a standards parser. Given freeform text containing academic standards (pasted from a document, PDF, or spreadsheet), extract each standard into structured data.
@@ -17,6 +17,10 @@ Respond with ONLY valid JSON:
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const body = await request.json();
     const { text, subject, grade_band } = body;
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import MaterialGeneratorPanel from '@/components/MaterialGeneratorPanel';
 import { localDateStr } from '@/lib/task-helpers';
 import { ChevronLeft, ChevronRight, History, Tag, Lightbulb, Plus, RefreshCw, List, ArrowLeft } from 'lucide-react';
+import EmptyState from '@/components/EmptyState';
 
 // ──────────────── Types ────────────────
 
@@ -66,7 +67,7 @@ interface PlanHistoryItem {
 function getMonday(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
   const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
+  const diff = day === 0 ? 1 : day === 6 ? 2 : 1 - day;
   d.setDate(d.getDate() + diff);
   return localDateStr(d);
 }
@@ -1122,12 +1123,11 @@ export default function LessonPlansPage() {
 
 
               {activities.length === 0 && !loading && (
-                <div className="text-center py-12">
-                  <p className="text-text-muted text-sm mb-1">No activities yet.</p>
-                  <p className="text-text-muted text-xs">
-                    Use the brainstorm chat to plan your week, then click &quot;Generate Plan&quot; to populate this grid.
-                  </p>
-                </div>
+                <EmptyState
+                  preset="lessons"
+                  title="No Activities Yet"
+                  description="Use the brainstorm chat to plan your week, then click &quot;Generate Plan&quot; to populate this grid."
+                />
               )}
 
               {weekDates.map((date, dayIdx) => {
@@ -1356,7 +1356,7 @@ export default function LessonPlansPage() {
                   <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : standardPopup.activities.length === 0 ? (
-                <p className="text-xs text-text-muted py-2">No activities have been tagged with this standard yet.</p>
+                <p className="text-xs text-text-muted/60 italic py-2">No activities have been tagged with this standard yet</p>
               ) : (
                 <div className="space-y-1.5">
                   {standardPopup.activities.map(act => (

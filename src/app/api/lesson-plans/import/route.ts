@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { importLessonPlanDocx } from '@/lib/lesson-plan-importer';
+
+const MAX_DOC_SIZE = 50 * 1024 * 1024; // 50MB
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const formData = await request.formData();
     const file = formData.get('file');
     const weekOf = formData.get('week_of') as string | null;
@@ -28,6 +34,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Only .docx files are supported' },
         { status: 400 }
+      );
+    }
+
+    // Enforce file size limit
+    if (file.size > MAX_DOC_SIZE) {
+      return NextResponse.json(
+        { error: 'Document too large. Maximum size is 50MB.' },
+        { status: 413 }
       );
     }
 
@@ -73,6 +87,7 @@ export async function POST(request: NextRequest) {
         status: 'imported',
         raw_input: `Imported from: ${fileName}`,
         brainstorm_history: [],
+        user_id: user.id,
       })
       .select()
       .single();
@@ -105,6 +120,7 @@ export async function POST(request: NextRequest) {
           activity_type: act.activity_type || 'lesson',
           material_status: 'not_needed',
           sort_order: i,
+          user_id: user.id,
         });
       }
     }
@@ -141,7 +157,6 @@ export async function POST(request: NextRequest) {
 
 /**
  * Fuzzy-match a class name from the parsed document to an existing class in the DB.
- * Handles variations like "English 1", "Eng-1", "English-1", "French", "French-1", etc.
  */
 function matchClassName(
   parsedName: string,
@@ -150,26 +165,21 @@ function matchClassName(
   if (!parsedName) return null;
   const lower = parsedName.toLowerCase().trim();
 
-  // Try exact match first
   const exact = classes.find(c => c.name.toLowerCase() === lower);
   if (exact) return exact;
 
-  // Try contains match
   const contains = classes.find(c => lower.includes(c.name.toLowerCase()));
   if (contains) return contains;
 
-  // Try reverse contains (class name contains parsed name)
   const reverseContains = classes.find(c => c.name.toLowerCase().includes(lower));
   if (reverseContains) return reverseContains;
 
-  // Try keyword matching
   if (lower.includes('french') || lower.includes('fran')) {
     const french = classes.find(c => c.name.toLowerCase().includes('french'));
     if (french) return french;
   }
 
   if (lower.includes('english') || lower.includes('eng')) {
-    // Try to differentiate English-1 vs English-2
     const numMatch = lower.match(/(\d+)/);
     if (numMatch) {
       const num = numMatch[1];
@@ -178,12 +188,10 @@ function matchClassName(
       );
       if (specific) return specific;
     }
-    // Fall back to first English class
     const english = classes.find(c => c.name.toLowerCase().includes('english'));
     if (english) return english;
   }
 
-  // Last resort: try matching by period numbers mentioned
   if (lower.includes('1st') || lower.includes('3rd') || lower.includes('5th')) {
     const eng2 = classes.find(c => c.name.toLowerCase().includes('english-2'));
     if (eng2) return eng2;
@@ -193,6 +201,5 @@ function matchClassName(
     if (eng1) return eng1;
   }
 
-  // No match found
   return null;
 }

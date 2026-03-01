@@ -128,11 +128,13 @@ RULES:
 
 /**
  * Parse a brainstorm conversation into structured activities per day per class.
+ * If targetClassId is provided, only extract activities for that specific class.
  */
 export async function parseBrainstormToActivities(
   brainstormHistory: ChatMessage[],
   classes: { id: number; name: string }[],
-  weekDates: string[]
+  weekDates: string[],
+  targetClassId?: number
 ): Promise<{ result: ParseResult | null; error: string | null }> {
   const classListStr = classes.map(c => `ID ${c.id}: ${c.name}`).join('\n');
   const datesStr = weekDates.join(', ');
@@ -140,6 +142,12 @@ export async function parseBrainstormToActivities(
   const conversationStr = brainstormHistory
     .map(msg => `${msg.role === 'user' ? 'TEACHER' : 'AI'}: ${msg.content}`)
     .join('\n\n');
+
+  // If targeting a specific class, add filtering instructions
+  const targetClass = targetClassId ? classes.find(c => c.id === targetClassId) : null;
+  const classFilter = targetClass
+    ? `\n\nIMPORTANT: Only extract activities for "${targetClass.name}" (class_id: ${targetClass.id}). Ignore any activities discussed for other classes. Every activity in your output must have class_id: ${targetClass.id}.`
+    : '';
 
   const userPrompt = `CLASSES:
 ${classListStr}
@@ -149,7 +157,7 @@ WEEK DATES (Mon-Fri): ${datesStr}
 BRAINSTORM CONVERSATION:
 ${conversationStr}
 
-Parse this conversation into structured activities. Output ONLY valid JSON.`;
+Parse this conversation into structured activities. Output ONLY valid JSON.${classFilter}`;
 
   try {
     const aiConfig = await getAIConfig();

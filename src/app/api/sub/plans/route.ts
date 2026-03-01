@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { generateSubDashSnapshot } from '@/lib/subdash-generator';
 import { randomUUID } from 'crypto';
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { data, error } = await supabase
       .from('subdash_plans')
       .select('id, date, share_token, custom_notes, sub_name, sub_contact, status, mode, created_at, updated_at')
@@ -25,6 +29,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
     const {
       date,
@@ -70,6 +78,7 @@ export async function POST(request: NextRequest) {
         status,
         mode,
         snapshot,
+        user_id: user.id,
       })
       .select('*')
       .single();

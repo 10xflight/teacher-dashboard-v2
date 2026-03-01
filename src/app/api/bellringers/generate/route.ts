@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, getOrCreateBellringer, loadPrompts } from '@/lib/db';
+import { getOrCreateBellringer, loadPrompts } from '@/lib/db';
 import { generateFullBellringer } from '@/lib/bellringer-generator';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
     const { date, notes, promptsOnly } = body;
 
@@ -18,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get or create bellringer row
-    const { id: bellringerId } = await getOrCreateBellringer(date);
+    const { id: bellringerId } = await getOrCreateBellringer(date, supabase, user.id);
 
     // Update main bellringer row (backwards compat for first prompt + optionally ACT)
     const updateFields: Record<string, unknown> = {
@@ -79,7 +84,7 @@ export async function POST(request: NextRequest) {
       .eq('id', bellringerId)
       .single();
 
-    const savedPrompts = await loadPrompts(bellringerId);
+    const savedPrompts = await loadPrompts(bellringerId, supabase);
 
     return NextResponse.json({ bellringer, prompts: savedPrompts });
   } catch (err) {

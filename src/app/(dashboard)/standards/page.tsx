@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { ChevronUp, ChevronDown, ChevronRight, Upload, RefreshCw, X, Trash2 } from 'lucide-react';
+import { StandardsSkeleton } from '@/components/Skeleton';
+import EmptyState from '@/components/EmptyState';
 
 // ──────────────── Types ────────────────
 
@@ -396,8 +398,12 @@ export default function StandardsCoveragePage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-24">
-        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">Standards Coverage</h1>
+          <p className="text-sm text-text-muted mt-1">Track which standards have been addressed across your classes</p>
+        </div>
+        <StandardsSkeleton />
       </div>
     );
   }
@@ -425,8 +431,13 @@ export default function StandardsCoveragePage() {
             Track which standards have been addressed across your classes
           </p>
         </div>
-        <div className="rounded-xl bg-bg-card border border-border p-12 text-center">
-          <p className="text-text-muted">No classes or standards found. Add classes and seed standards first.</p>
+        <div className="rounded-xl bg-bg-card border border-border">
+          <EmptyState
+            preset="standards"
+            title="No Standards Loaded"
+            description="Add your classes in Settings and seed your standards to start tracking coverage."
+            action={{ label: 'Go to Settings', href: '/settings' }}
+          />
         </div>
       </div>
     );
@@ -736,7 +747,7 @@ export default function StandardsCoveragePage() {
                                         </tbody>
                                       </table>
                                     ) : (
-                                      <p className="text-xs text-text-muted">No activities have covered this standard yet.</p>
+                                      <p className="text-xs text-text-muted/60 italic py-1">No activities have covered this standard yet</p>
                                     )}
                                   </div>
                                 ) : (

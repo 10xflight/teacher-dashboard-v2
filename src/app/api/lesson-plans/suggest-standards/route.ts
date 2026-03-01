@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { chatWithAI } from '@/lib/ai-service';
 
 const SYSTEM_PROMPT = `You are a standards alignment advisor for a high school English and French teacher at Stratford High School in Oklahoma.
@@ -19,6 +19,10 @@ Keep it concise and teacher-friendly. Prioritize never-hit standards over stale 
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { lesson_plan_id } = await request.json();
 
     if (!lesson_plan_id) {

@@ -3,6 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { localDateStr } from '@/lib/task-helpers';
+import { LibrarySkeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
+import EmptyState from '@/components/EmptyState';
 
 interface LibraryPrompt {
   id: number;
@@ -41,7 +45,8 @@ export default function BellringerLibraryPage() {
   const [sendModal, setSendModal] = useState<LibraryPrompt | null>(null);
   const [sendDate, setSendDate] = useState('');
   const [sendSlot, setSendSlot] = useState(0);
-  const [toast, setToast] = useState<string | null>(null);
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const loadLibrary = useCallback(async () => {
     try {
@@ -70,7 +75,13 @@ export default function BellringerLibraryPage() {
   const types = [...new Set(prompts.map(p => p.journal_type).filter(Boolean))] as string[];
 
   async function deletePrompt(id: number) {
-    if (!confirm('Delete this prompt from the library?')) return;
+    const ok = await confirm({
+      title: 'Delete Prompt',
+      message: 'Delete this prompt from the library? This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     await fetch(`/api/bellringers/library/${id}`, { method: 'DELETE' });
     setPrompts(prev => prev.filter(p => p.id !== id));
     showToast('Prompt deleted');
@@ -96,10 +107,6 @@ export default function BellringerLibraryPage() {
     }
   }
 
-  function showToast(msg: string, _err?: boolean) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }
 
   const inputCls = 'px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:border-accent focus:outline-none';
 
@@ -145,9 +152,7 @@ export default function BellringerLibraryPage() {
 
       {/* Prompts List */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-        </div>
+        <LibrarySkeleton />
       ) : filtered.length > 0 ? (
         <div className="space-y-3">
           {filtered.map(p => (
@@ -198,12 +203,20 @@ export default function BellringerLibraryPage() {
             </div>
           ))}
         </div>
-      ) : (
-        <div className="text-center py-12">
-          <p className="text-text-muted">
-            {search || typeFilter ? 'No prompts match your search.' : 'No prompts in the library yet. Generate some bellringers to populate it!'}
-          </p>
-        </div>
+      ) : search || typeFilter ? (
+          <EmptyState
+            preset="search"
+            title="No Matching Prompts"
+            description="Try adjusting your search or filter to find what you're looking for."
+            compact
+          />
+        ) : (
+          <EmptyState
+            preset="bellringer"
+            title="Library is Empty"
+            description="Generate bellringers from the editor and they'll appear here for reuse."
+            action={{ label: 'Go to Bellringer Editor', href: `/bellringer/edit/today` }}
+          />
       )}
 
       {/* Send to Slot Modal */}
@@ -244,12 +257,6 @@ export default function BellringerLibraryPage() {
         </div>
       )}
 
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-[200] px-5 py-3 rounded-lg bg-accent-green text-white font-medium shadow-lg">
-          {toast}
-        </div>
-      )}
     </div>
   );
 }

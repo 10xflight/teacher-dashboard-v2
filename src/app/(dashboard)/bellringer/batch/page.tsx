@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { localDateStr } from '@/lib/task-helpers';
+import { localDateStr, nextSchoolDay } from '@/lib/task-helpers';
 
 interface BatchResult {
   date: string;
@@ -19,6 +19,31 @@ interface BatchResponse {
   summary: { generated: number; skipped: number; failed: number };
 }
 
+const JOURNAL_TYPES = [
+  { value: '', label: 'Random' },
+  { value: 'creative', label: 'Creative' },
+  { value: 'quote', label: 'Quote' },
+  { value: 'emoji', label: 'Emoji' },
+  { value: 'reflective', label: 'Reflective' },
+  { value: 'critical_thinking', label: 'Thought-Provoking' },
+  { value: 'descriptive', label: 'Descriptive' },
+  { value: 'poetry', label: 'Poetry / Poem' },
+  { value: 'list', label: 'Top 5 List' },
+  { value: 'debate', label: 'Debate' },
+  { value: 'would_you_rather', label: 'Would You Rather' },
+];
+
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+// Default: each day gets a different mix of 4 types
+const DEFAULT_DAY_TYPES: string[][] = [
+  ['creative', 'quote', 'reflective', 'emoji'],
+  ['critical_thinking', 'descriptive', 'would_you_rather', 'quote'],
+  ['poetry', 'creative', 'debate', 'reflective'],
+  ['list', 'emoji', 'critical_thinking', 'descriptive'],
+  ['would_you_rather', 'poetry', 'creative', 'quote'],
+];
+
 function getMondayOfWeek(date?: Date): string {
   const d = date || new Date();
   const day = d.getDay();
@@ -26,6 +51,16 @@ function getMondayOfWeek(date?: Date): string {
   const monday = new Date(d);
   monday.setDate(d.getDate() + diff);
   return localDateStr(monday);
+}
+
+function getWeekDates(mondayStr: string): string[] {
+  const d = new Date(mondayStr + 'T12:00:00');
+  const dates: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    dates.push(localDateStr(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
 }
 
 function formatDate(dateStr: string): string {
@@ -52,11 +87,66 @@ function BatchBellringerContent() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState('');
 
+  // Per-day journal type selections (4 types per day)
+  const [dayTypes, setDayTypes] = useState<string[][]>(DEFAULT_DAY_TYPES);
+  const [typesLoaded, setTypesLoaded] = useState(false);
+  const [typesSaved, setTypesSaved] = useState(false);
+
+  // Load saved preferences
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(settings => {
+        if (settings.bellringer_batch_types) {
+          try {
+            const saved = JSON.parse(settings.bellringer_batch_types);
+            if (Array.isArray(saved) && saved.length === 5) {
+              setDayTypes(saved);
+            }
+          } catch { /* use defaults */ }
+        }
+        setTypesLoaded(true);
+      })
+      .catch(() => setTypesLoaded(true));
+  }, []);
+
+  // Save preferences
+  async function saveTypes(updated: string[][]) {
+    setDayTypes(updated);
+    setTypesSaved(false);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bellringer_batch_types: JSON.stringify(updated) }),
+      });
+      setTypesSaved(true);
+      setTimeout(() => setTypesSaved(false), 2000);
+    } catch { /* silent */ }
+  }
+
+  function updateDayType(dayIndex: number, slotIndex: number, value: string) {
+    const updated = dayTypes.map((day, i) =>
+      i === dayIndex ? day.map((t, j) => j === slotIndex ? value : t) : [...day]
+    );
+    saveTypes(updated);
+  }
+
   async function generate() {
     setGenerating(true);
     setError(null);
     setResponse(null);
     setProgress('Generating bellringers for the week... This may take 30-60 seconds.');
+
+    // Build per-date type map, filtering out empty (random) values
+    const dates = getWeekDates(weekOf);
+    const dayTypesMap: Record<string, string[]> = {};
+    dates.forEach((dateStr, i) => {
+      const types = dayTypes[i].filter(t => t !== '');
+      if (types.length > 0) {
+        dayTypesMap[dateStr] = types;
+      }
+    });
 
     try {
       const res = await fetch('/api/bellringers/generate-batch', {
@@ -66,6 +156,7 @@ function BatchBellringerContent() {
           week_of: weekOf,
           notes: notes.trim() || undefined,
           skip_existing: skipExisting,
+          day_types: dayTypesMap,
         }),
       });
       const data = await res.json();
@@ -87,7 +178,7 @@ function BatchBellringerContent() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href={`/bellringer/edit/${localDateStr()}`}
+          <Link href={`/bellringer/edit/${nextSchoolDay()}`}
             className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-hover transition-colors"
             title="Back to Bellringer Generator">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -135,7 +226,54 @@ function BatchBellringerContent() {
           />
           <span className="text-sm text-text-secondary">Skip days that already have bellringers</span>
         </label>
+      </div>
 
+      {/* Per-day type config */}
+      {typesLoaded && (
+        <div className="rounded-xl bg-bg-card border border-border p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-text-primary">Journal Types per Day</h2>
+              <p className="text-xs text-text-muted mt-0.5">Pick 4 prompt types for each day — saved automatically</p>
+            </div>
+            {typesSaved && (
+              <span className="text-xs text-accent-green">Saved</span>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {DAY_NAMES.map((dayName, dayIdx) => (
+              <div key={dayName} className="flex items-center gap-3">
+                <span className="text-sm font-medium text-text-secondary w-20 shrink-0">{dayName}</span>
+                <div className="flex flex-wrap gap-1.5 flex-1">
+                  {[0, 1, 2, 3].map(slotIdx => (
+                    <select
+                      key={slotIdx}
+                      value={dayTypes[dayIdx]?.[slotIdx] || ''}
+                      onChange={e => updateDayType(dayIdx, slotIdx, e.target.value)}
+                      className="px-2 py-1.5 bg-bg-input border border-border rounded-lg text-text-primary text-xs focus:border-accent focus:outline-none min-w-0 flex-1"
+                    >
+                      {JOURNAL_TYPES.map(t => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => saveTypes(DEFAULT_DAY_TYPES)}
+            className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+          >
+            Reset to defaults
+          </button>
+        </div>
+      )}
+
+      {/* Generate button */}
+      <div className="rounded-xl bg-bg-card border border-border p-5 space-y-4">
         <button
           onClick={generate}
           disabled={generating}

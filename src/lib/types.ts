@@ -198,6 +198,23 @@ export interface PromptCard {
   emojis?: string;
 }
 
+// Email task queue types
+
+export interface EmailTaskQueueItem {
+  id: number;
+  email_message_id: string;
+  email_subject: string | null;
+  email_from: string | null;
+  email_date: string | null;
+  task_text: string;
+  suggested_due_date: string | null;
+  suggested_class_id: number | null;
+  confidence: 'high' | 'medium';
+  status: 'pending' | 'approved' | 'dismissed';
+  created_task_id: number | null;
+  created_at: string;
+}
+
 // SubDash types
 
 export interface ScheduleEntry {

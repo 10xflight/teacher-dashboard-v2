@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, getOrCreateBellringer, loadPrompts } from '@/lib/db';
+import { getOrCreateBellringer, loadPrompts } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
     const { source_id, target_date } = body;
 
@@ -25,10 +30,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Load source prompts
-    const sourcePrompts = await loadPrompts(source_id);
+    const sourcePrompts = await loadPrompts(source_id, supabase);
 
     // Get or create bellringer for target date
-    const { id: targetId } = await getOrCreateBellringer(target_date);
+    const { id: targetId } = await getOrCreateBellringer(target_date, supabase, user.id);
 
     // Copy main bellringer fields to target
     const { error: updateError } = await supabase
@@ -82,7 +87,7 @@ export async function POST(request: NextRequest) {
       .eq('id', targetId)
       .single();
 
-    const prompts = await loadPrompts(targetId);
+    const prompts = await loadPrompts(targetId, supabase);
 
     return NextResponse.json({ bellringer, prompts });
   } catch (err) {

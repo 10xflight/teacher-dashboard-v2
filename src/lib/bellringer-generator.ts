@@ -21,13 +21,13 @@ SKILL AREAS (pick one, vary each time): commas (introductory phrases, appositive
 ACT QUESTION RULES:
 - Write a realistic, natural-sounding sentence (like from an article about science, history, daily life) with ONE error
 - Wrap the tested part in <b> tags
-- Each answer choice must be the FULL COMPLETE SENTENCE with the bolded part replaced — so the student reads each option as a whole sentence
-- "No change" should show the original sentence exactly as written (with the error, no bold tags) — only correct if the original has no error
+- Each answer choice is ONLY the replacement fragment for the bolded part — NOT the full sentence. This is how real ACT questions work.
+- One choice should be "NO CHANGE" (the original bolded text, keeping the error)
 - Vary which letter (A/B/C/D) is correct — NOT always A
-- Rule = one short, student-friendly sentence
-- SELF-CHECK: Read each choice as a standalone sentence. Is exactly one grammatically perfect?
+- Rule = a SHORT, punchy tip a student can remember — max 10 words (e.g., "Comma after introductory phrases." or "Its = possession, it's = it is."). No quotation marks around words.
+- SELF-CHECK: Mentally substitute each choice into the sentence. Is exactly one grammatically perfect?
 
-ACT EXAMPLE: {"act_skill": "Commas with Introductory Phrases", "act_question": "After finishing the experiment <b>the students</b> recorded their observations.", "act_choices": "A. After finishing the experiment, the students recorded their observations.\\nB. After finishing the experiment: the students recorded their observations.\\nC. After finishing the experiment the students, recorded their observations.\\nD. After finishing the experiment the students recorded their observations.", "act_answer": "A", "act_rule": "Use a comma after an introductory phrase or clause."}
+ACT EXAMPLE: {"act_skill": "Commas with Introductory Phrases", "act_question": "After finishing the experiment <b>the students</b> recorded their observations.", "act_choices": "A. the students\\nB. , the students\\nC. the students,\\nD. : the students", "act_answer": "B", "act_rule": "Comma after introductory phrases."}
 
 JSON format:
 {
@@ -39,7 +39,7 @@ JSON format:
     ],
     "act_skill": "Skill Name",
     "act_question": "Realistic sentence with <b>tested part</b> bolded.",
-    "act_choices": "A. Full sentence option 1.\\nB. Full sentence option 2.\\nC. Full sentence option 3.\\nD. Full sentence (no change).",
+    "act_choices": "A. replacement fragment\\nB. replacement fragment\\nC. replacement fragment\\nD. NO CHANGE",
     "act_answer": "A",
     "act_rule": "Short rule here."
 }`;
@@ -79,7 +79,7 @@ GOOD (short): "What would you title this photo? Why?"
 JSON format:
 {"journal_type": "image", "journal_prompt": "Short prompt here", "journal_subprompt": "WRITE A PARAGRAPH IN YOUR JOURNAL!"}`;
 
-const ACT_SYSTEM_PROMPT = `You generate ONE ACT English test-style question for 9th/10th graders. These must look and feel like REAL ACT English questions — a short passage-style sentence with a grammar/mechanics error that students must identify and fix.
+const ACT_SYSTEM_PROMPT = `You generate ONE ACT English test-style question for 9th/10th graders. These must look and feel like REAL ACT English questions — a sentence with a grammar/mechanics error where students pick the correct replacement for the underlined/bolded portion.
 
 SKILL CATEGORIES (pick one, vary each time):
 1. COMMAS: introductory phrases, compound sentences, appositives, items in a series, coordinate adjectives, restrictive vs nonrestrictive clauses
@@ -94,33 +94,36 @@ SKILL CATEGORIES (pick one, vary each time):
 10. SENTENCE STRUCTURE: fragments, run-ons, comma splices, subordination vs coordination
 11. WORD CHOICE: affect/effect, than/then, accept/except, less/fewer, lie/lay
 
-FORMAT: Write a realistic, natural-sounding sentence with ONE error. Wrap the tested part in <b> tags. Each answer choice must be the FULL SENTENCE with the bolded part replaced — so the student can read each option as a complete sentence and judge which sounds correct.
+FORMAT — REAL ACT STYLE:
+- Write a realistic, natural-sounding sentence with ONE error
+- Wrap the tested part in <b> tags
+- Answer choices are ONLY the replacement fragment for the bolded part — NOT the full sentence repeated
+- One choice must be "NO CHANGE" — the original bolded text kept as-is (with the error)
+- The bolded portion should include enough surrounding words for context (not just a single word when possible)
 
 CRITICAL RULES:
-- The sentence must sound like it belongs in a real article or essay — not a contrived grammar exercise
-- Each choice is the COMPLETE sentence with the replacement applied (not just the changed fragment)
-- "No change" should show the original sentence exactly as written (with no bold tags)
-- Exactly ONE choice must be correct and produce a grammatically perfect sentence
-- The correct answer should NOT always be A — vary which letter is correct (A, B, C, or D)
-- The rule must be a SHORT, memorable, student-friendly explanation (one sentence)
-- NEVER put quotation marks around individual words in the choices
+- The sentence must sound like it belongs in a real article or essay
+- Each choice is JUST the replacement text that would go where the bold tags are
+- Exactly ONE choice must be the grammatically correct replacement
+- Vary which letter (A, B, C, or D) is correct
+- The rule must be a SHORT, punchy tip — max 10 words (e.g., Comma after introductory phrases. or Its = possession, it's = it is.). No quotation marks around words.
 
-SELF-CHECK — DO THIS BEFORE OUTPUTTING:
-1. Read each answer choice as a standalone sentence. Is the correct one grammatically perfect? Are the wrong ones clearly wrong?
-2. Make sure "No change" reproduces the original (with the error) — it should only be correct if the original has no error.
-3. Verify exactly ONE choice is correct.
+SELF-CHECK:
+1. Mentally substitute each choice into the sentence in place of the bolded part
+2. Is exactly one result grammatically perfect?
+3. Is the "NO CHANGE" option showing the original error?
 
 EXAMPLE 1 (Commas):
-{"act_skill": "Commas with Introductory Phrases", "act_question": "After finishing the experiment <b>the students</b> recorded their observations in the lab notebook.", "act_choices": "A. After finishing the experiment, the students recorded their observations in the lab notebook.\\nB. After finishing the experiment: the students recorded their observations in the lab notebook.\\nC. After finishing the experiment the students, recorded their observations in the lab notebook.\\nD. After finishing the experiment the students recorded their observations in the lab notebook.", "act_answer": "A", "act_rule": "Use a comma after an introductory phrase or clause."}
+{"act_skill": "Commas with Introductory Phrases", "act_question": "After finishing the experiment <b>the students recorded</b> their observations in the lab notebook.", "act_choices": "A. , the students recorded\\nB. : the students recorded\\nC. the students, recorded\\nD. NO CHANGE", "act_answer": "A", "act_rule": "Comma after introductory phrases."}
 
 EXAMPLE 2 (Apostrophes):
-{"act_skill": "Apostrophes — Possessives", "act_question": "The <b>companies</b> new policy required all employees to complete safety training within their first week.", "act_choices": "A. The company's new policy required all employees to complete safety training within their first week.\\nB. The companies' new policy required all employees to complete safety training within their first week.\\nC. The companys new policy required all employees to complete safety training within their first week.\\nD. The companies new policy required all employees to complete safety training within their first week.", "act_answer": "A", "act_rule": "Use an apostrophe + s to show singular possession."}
+{"act_skill": "Apostrophes — Possessives", "act_question": "The <b>companies new</b> policy required all employees to complete safety training.", "act_choices": "A. company's new\\nB. companies' new\\nC. companys new\\nD. NO CHANGE", "act_answer": "A", "act_rule": "Apostrophe + s = singular possession."}
 
 EXAMPLE 3 (Parallelism):
-{"act_skill": "Parallel Structure", "act_question": "The coach told the team to stay focused, work together, and <b>they should keep a positive attitude.</b>", "act_choices": "A. The coach told the team to stay focused, work together, and keeping a positive attitude.\\nB. The coach told the team to stay focused, work together, and maintain a positive attitude.\\nC. The coach told the team to stay focused, work together, and a positive attitude should be kept.\\nD. The coach told the team to stay focused, work together, and they should keep a positive attitude.", "act_answer": "B", "act_rule": "Items in a series must follow the same grammatical pattern."}
+{"act_skill": "Parallel Structure", "act_question": "The coach told the team to stay focused, work together, and <b>they should keep a positive attitude.</b>", "act_choices": "A. keeping a positive attitude.\\nB. maintain a positive attitude.\\nC. a positive attitude should be kept.\\nD. NO CHANGE", "act_answer": "B", "act_rule": "Keep items in a series parallel."}
 
 EXAMPLE 4 (Subject-Verb Agreement):
-{"act_skill": "Subject-Verb Agreement", "act_question": "Each of the paintings in the gallery <b>were</b> created by a local artist during the summer festival.", "act_choices": "A. Each of the paintings in the gallery was created by a local artist during the summer festival.\\nB. Each of the paintings in the gallery have been created by a local artist during the summer festival.\\nC. Each of the paintings in the gallery are created by a local artist during the summer festival.\\nD. Each of the paintings in the gallery were created by a local artist during the summer festival.", "act_answer": "A", "act_rule": "\\\"Each\\\" is always singular and takes a singular verb."}
+{"act_skill": "Subject-Verb Agreement", "act_question": "Each of the paintings in the gallery <b>were created</b> by a local artist during the summer festival.", "act_choices": "A. was created\\nB. have been created\\nC. are created\\nD. NO CHANGE", "act_answer": "A", "act_rule": "Each is always singular."}
 
 Generate ONE question in valid JSON. Do NOT wrap in markdown. Vary the skill from the examples above.`;
 
@@ -145,7 +148,7 @@ async function getModelIfGemini() {
 // Generation functions
 // ============================================================
 
-export async function generateFullBellringer(teacherNotes = '') {
+export async function generateFullBellringer(teacherNotes = '', journalTypes?: string[]) {
   const { model, error } = await getModelIfGemini();
   if (error) return { result: null, error };
 
@@ -155,6 +158,9 @@ export async function generateFullBellringer(teacherNotes = '') {
 Avoid these recent ACT skills: ${context.recentActSkills.slice(0, 5).join(', ') || 'None'}
 Vary from these recent journal types: ${context.recentJournalTypes.slice(0, 5).join(', ') || 'None'}`;
 
+  if (journalTypes && journalTypes.length > 0) {
+    userPrompt += `\nIMPORTANT: The 4 journal prompts MUST use these types in this order: ${journalTypes.join(', ')}. Generate exactly one prompt per type listed.`;
+  }
   if (teacherNotes) {
     userPrompt += `\nTeacher idea/theme: ${teacherNotes}`;
   }

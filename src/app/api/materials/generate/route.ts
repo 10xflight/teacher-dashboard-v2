@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { generateMaterial, MaterialType } from '@/lib/material-generator';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const body = await request.json();
     const { activity_id, material_type, teacher_notes } = body;
 

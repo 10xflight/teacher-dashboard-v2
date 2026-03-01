@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, getOrCreateBellringer } from '@/lib/db';
+import { getOrCreateBellringer } from '@/lib/db';
 import { generateActQuestion } from '@/lib/bellringer-generator';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
     const { date, notes, skill } = body;
 
@@ -18,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get or create bellringer
-    const { id: bellringerId } = await getOrCreateBellringer(date);
+    const { id: bellringerId } = await getOrCreateBellringer(date, supabase, user.id);
 
     // Update main bellringer row with ACT fields
     const { data: bellringer, error: updateError } = await supabase

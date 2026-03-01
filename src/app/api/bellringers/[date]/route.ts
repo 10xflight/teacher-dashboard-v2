@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, loadPrompts } from '@/lib/db';
+import { loadPrompts } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ date: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { date } = await params;
 
     const { data: bellringer, error } = await supabase
@@ -20,7 +25,7 @@ export async function GET(
       return NextResponse.json({ bellringer: null, prompts: [] });
     }
 
-    const prompts = await loadPrompts(bellringer.id);
+    const prompts = await loadPrompts(bellringer.id, supabase);
 
     return NextResponse.json({ bellringer, prompts });
   } catch (err) {
@@ -34,6 +39,10 @@ export async function DELETE(
   { params }: { params: Promise<{ date: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { date } = await params;
 
     // Find the bellringer for this date

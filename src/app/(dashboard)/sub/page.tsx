@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { localDateStr } from '@/lib/task-helpers';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 // ── Types ──
 
@@ -764,6 +765,7 @@ function GenerateTab({
 // ── Main Page ──
 
 export default function SubDashPage() {
+  const { confirm } = useConfirm();
   const [activeTab, setActiveTab] = useState<'profile' | 'media' | 'generate'>('profile');
   const [plans, setPlans] = useState<PlanSummary[]>([]);
   const [classes, setClasses] = useState<ClassInfo[]>([]);
@@ -806,7 +808,13 @@ export default function SubDashPage() {
   }, [loadPlans, loadClasses, loadMedia]);
 
   async function handleEmergency() {
-    if (!confirm('Create an Emergency SubDash for TODAY? This will be immediately shareable.')) return;
+    const ok = await confirm({
+      title: 'Emergency SubDash',
+      message: 'Create an Emergency SubDash for TODAY? This will be immediately shareable.',
+      confirmLabel: 'Create Now',
+      variant: 'warning',
+    });
+    if (!ok) return;
     setEmergencyLoading(true);
     try {
       const res = await fetch('/api/sub/plans', {

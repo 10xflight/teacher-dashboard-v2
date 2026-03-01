@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { tagActivityWithStandards } from '@/lib/standards-tagger';
 
 export async function POST(
@@ -7,10 +7,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { id } = await params;
     const activityId = parseInt(id);
 
-    // Fetch the activity with its class info
     const { data: activity, error: actError } = await supabase
       .from('activities')
       .select('*, classes(name)')
@@ -23,7 +26,6 @@ export async function POST(
 
     const className = activity.classes?.name || 'English-1';
 
-    // Run the AI auto-tagger
     const { codes, reasoning, error: tagError } = await tagActivityWithStandards({
       title: activity.title,
       description: activity.description,
@@ -42,7 +44,6 @@ export async function POST(
       });
     }
 
-    // Look up standard IDs from codes
     const { data: matchedStandards, error: lookupError } = await supabase
       .from('standards')
       .select('id, code, description, strand')
@@ -61,7 +62,6 @@ export async function POST(
       });
     }
 
-    // Insert activity_standards rows (upsert to avoid duplicates)
     const rows = matchedStandards.map((s) => ({
       activity_id: activityId,
       standard_id: s.id,

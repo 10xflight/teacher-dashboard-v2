@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git log:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx next:*)",
+      "Bash(rm:*)",
+      "Bash(ls:*)",
+      "Bash(curl:*)",
+      "Bash(wc:*)"
+    ]
+  }
+}

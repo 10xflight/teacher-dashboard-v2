@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { localDateStr } from '@/lib/task-helpers';
 
 function getNextSchoolDay(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
   d.setDate(d.getDate() + 1);
-  // Skip weekends
   while (d.getDay() === 0 || d.getDay() === 6) {
     d.setDate(d.getDate() + 1);
   }
@@ -17,9 +16,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { id } = await params;
 
-    // Fetch the activity
     const { data: activity, error: fetchError } = await supabase
       .from('activities')
       .select('*')
@@ -37,7 +39,6 @@ export async function POST(
 
     const nextDay = getNextSchoolDay(currentDate);
 
-    // Update the activity: set new date, record where it moved from
     const { data: updated, error: updateError } = await supabase
       .from('activities')
       .update({

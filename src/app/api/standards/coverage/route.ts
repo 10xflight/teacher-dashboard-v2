@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 function classToSubject(className: string): string {
   const lower = className.toLowerCase();
@@ -23,6 +23,10 @@ function classToGradeBand(className: string): string | null {
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     // 1. Fetch all classes
     const { data: classes, error: classError } = await supabase
       .from('classes')

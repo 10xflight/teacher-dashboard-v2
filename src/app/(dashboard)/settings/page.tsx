@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
+import { SettingsSkeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
 
 interface ClassInfo {
   id: number;
@@ -54,8 +56,6 @@ function periodsNumbersToString(nums: number[]): string {
 
 export default function SettingsPage() {
   const [provider, setProvider] = useState<AIProvider>('gemini');
-  const [geminiKey, setGeminiKey] = useState('');
-  const [anthropicKey, setAnthropicKey] = useState('');
   const [geminiModel, setGeminiModel] = useState('gemini-2.5-flash');
   const [anthropicModel, setAnthropicModel] = useState('claude-sonnet-4-20250514');
   const [schoolName, setSchoolName] = useState('');
@@ -64,14 +64,22 @@ export default function SettingsPage() {
   const [periodsPerDay, setPeriodsPerDay] = useState(7);
   const [gradingPeriodEnd, setGradingPeriodEnd] = useState('');
   const [semesterEnd, setSemesterEnd] = useState('');
+  const [fontSize, setFontSize] = useState('normal');
   const [classes, setClasses] = useState<ClassInfo[]>([]);
-  const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
   const [seedingCalendar, setSeedingCalendar] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
 
-  const showToast = useCallback((msg: string, err?: boolean) => {
-    setToast({ msg, err });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
+  // Env var status indicators (from server)
+  const [envStatus, setEnvStatus] = useState<Record<string, boolean>>({});
+
+  // Email integration state
+  const [msUserEmail, setMsUserEmail] = useState('');
+  const [msEmailEnabled, setMsEmailEnabled] = useState(false);
+  const [msLastFetch, setMsLastFetch] = useState('');
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
 
   useEffect(() => {
     async function load() {
@@ -84,8 +92,6 @@ export default function SettingsPage() {
         const cls = await classesRes.json();
 
         setProvider((settings.ai_provider as AIProvider) || 'gemini');
-        setGeminiKey(settings.gemini_api_key || '');
-        setAnthropicKey(settings.anthropic_api_key || '');
         const validGeminiModels = GEMINI_MODELS.map(m => m.value);
         const loadedGeminiModel = settings.gemini_model || 'gemini-2.5-flash';
         setGeminiModel(validGeminiModels.includes(loadedGeminiModel) ? loadedGeminiModel : 'gemini-2.5-flash');
@@ -96,11 +102,48 @@ export default function SettingsPage() {
         setPeriodsPerDay(parseInt(settings.periods_per_day) || 7);
         setGradingPeriodEnd(settings.grading_period_end || '');
         setSemesterEnd(settings.semester_end || '');
+        setFontSize(settings.app_font_size || 'normal');
         setClasses(cls || []);
+
+        // Env var status
+        setEnvStatus({
+          gemini: settings._env_gemini === 'configured',
+          anthropic: settings._env_anthropic === 'configured',
+          ms_client_id: settings._env_ms_client_id === 'configured',
+          ms_client_secret: settings._env_ms_client_secret === 'configured',
+          ms_tenant_id: settings._env_ms_tenant_id === 'configured',
+          resend: settings._env_resend === 'configured',
+        });
+
+        // Email integration settings
+        setMsUserEmail(settings.ms_user_email || '');
+        setMsEmailEnabled(settings.ms_email_enabled === 'true');
+        setMsLastFetch(settings.ms_last_fetch || '');
       } catch { /* ignore */ }
+      setLoading(false);
     }
     load();
   }, []);
+
+  // Handle OAuth callback query params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const emailParam = params.get('email');
+    if (emailParam === 'connected') {
+      showToast('Microsoft 365 email connected!');
+      setMsEmailEnabled(true);
+      // Re-fetch settings to get the email address
+      fetch('/api/settings').then(r => r.json()).then(settings => {
+        setMsUserEmail(settings.ms_user_email || '');
+      }).catch(() => {});
+      // Clean up the URL
+      window.history.replaceState({}, '', '/settings');
+    } else if (emailParam === 'error') {
+      const msg = params.get('msg') || 'Connection failed';
+      showToast(msg, true);
+      window.history.replaceState({}, '', '/settings');
+    }
+  }, [showToast]);
 
   async function saveSchoolInfo() {
     await fetch('/api/settings', {
@@ -118,14 +161,28 @@ export default function SettingsPage() {
     showToast('School info saved!');
   }
 
+  async function saveFontSize(size: string) {
+    setFontSize(size);
+    // Apply immediately
+    const html = document.documentElement;
+    html.classList.remove('font-size-large', 'font-size-xl');
+    if (size === 'large') html.classList.add('font-size-large');
+    else if (size === 'xl') html.classList.add('font-size-xl');
+    localStorage.setItem('app_font_size', size);
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ app_font_size: size }),
+    });
+    showToast('Font size updated!');
+  }
+
   async function saveAISettings() {
     await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ai_provider: provider,
-        gemini_api_key: geminiKey,
-        anthropic_api_key: anthropicKey,
         gemini_model: geminiModel,
         anthropic_model: anthropicModel,
       }),
@@ -191,11 +248,55 @@ export default function SettingsPage() {
     setSeedingCalendar(false);
   }
 
+  function connectEmail() {
+    window.location.href = '/api/email/connect';
+  }
+
+  async function disconnectEmail() {
+    setDisconnecting(true);
+    try {
+      await fetch('/api/email/disconnect', { method: 'POST' });
+      setMsEmailEnabled(false);
+      setMsUserEmail('');
+      setMsLastFetch('');
+      showToast('Email disconnected.');
+    } catch {
+      showToast('Failed to disconnect', true);
+    }
+    setDisconnecting(false);
+  }
+
+  async function checkEmailNow() {
+    setCheckingEmail(true);
+    try {
+      const res = await fetch('/api/email/fetch', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setMsLastFetch(new Date().toISOString());
+        showToast(`Checked ${data.fetched} emails, extracted ${data.extracted} tasks`);
+      } else {
+        showToast(data.error || 'Failed to check email', true);
+      }
+    } catch {
+      showToast('Failed to check email', true);
+    }
+    setCheckingEmail(false);
+  }
+
   const inputCls = 'w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:border-accent focus:outline-none';
   const labelCls = 'block text-xs uppercase tracking-wider text-accent font-semibold mb-1';
   const btnCls = 'px-4 py-2 bg-accent text-bg-primary rounded-lg font-semibold text-sm hover:brightness-110';
 
   const periodNumbers = Array.from({ length: periodsPerDay }, (_, i) => i + 1);
+
+  if (loading) {
+    return (
+      <div className="max-w-[800px] mx-auto space-y-6">
+        <h1 className="text-2xl font-bold text-text-primary">Settings</h1>
+        <SettingsSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[800px] mx-auto space-y-6">
@@ -243,6 +344,33 @@ export default function SettingsPage() {
         <button onClick={saveSchoolInfo} className={btnCls}>
           Save Info
         </button>
+      </div>
+
+      {/* Display */}
+      <div className="rounded-xl bg-bg-card border border-border p-5">
+        <h2 className="text-lg font-semibold text-text-primary mb-4">Display</h2>
+        <div>
+          <label className={labelCls}>Font Size</label>
+          <div className="flex gap-2">
+            {[
+              { value: 'normal', label: 'Normal' },
+              { value: 'large', label: 'Large' },
+              { value: 'xl', label: 'Extra Large' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => saveFontSize(opt.value)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
+                  fontSize === opt.value
+                    ? 'bg-accent text-bg-primary border-accent'
+                    : 'bg-bg-input text-text-secondary border-border hover:border-accent'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Classes */}
@@ -306,7 +434,15 @@ export default function SettingsPage() {
               </div>
             );
           })}
-          {classes.length === 0 && <p className="text-sm text-text-muted">No classes configured. Click &quot;+ Add Class&quot; to get started.</p>}
+          {classes.length === 0 && (
+            <div className="flex flex-col items-center gap-1.5 py-6">
+              <svg className="w-6 h-6 text-text-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.636 50.636 0 00-2.658-.813A59.906 59.906 0 0112 3.493a59.903 59.903 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0112 13.489a50.702 50.702 0 017.74-3.342" />
+              </svg>
+              <p className="text-sm text-text-muted">No classes yet</p>
+              <p className="text-xs text-text-muted/70">Click &quot;+ Add Class&quot; above to get started.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -353,16 +489,19 @@ export default function SettingsPage() {
         <div className={`space-y-3 ${provider === 'gemini' ? '' : 'opacity-40 pointer-events-none'}`}>
           <div>
             <label className={labelCls}>Gemini API Key</label>
-            <input
-              type="password"
-              value={geminiKey}
-              onChange={e => setGeminiKey(e.target.value)}
-              placeholder="Enter your Gemini API key..."
-              className={inputCls}
-            />
-            <p className="text-xs text-text-muted mt-1">
-              Get your key from <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-accent hover:underline">Google AI Studio</a>
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              {envStatus.gemini ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent-green/10 text-accent-green text-xs font-medium border border-accent-green/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
+                  Configured in .env.local
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent-red/10 text-accent-red text-xs font-medium border border-accent-red/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-red" />
+                  Not set — add GEMINI_API_KEY to .env.local
+                </span>
+              )}
+            </div>
           </div>
           <div>
             <label className={labelCls}>Gemini Model</label>
@@ -378,16 +517,19 @@ export default function SettingsPage() {
         <div className={`space-y-3 mt-4 ${provider === 'anthropic' ? '' : 'opacity-40 pointer-events-none'}`}>
           <div>
             <label className={labelCls}>Anthropic API Key</label>
-            <input
-              type="password"
-              value={anthropicKey}
-              onChange={e => setAnthropicKey(e.target.value)}
-              placeholder="Enter your Anthropic API key..."
-              className={inputCls}
-            />
-            <p className="text-xs text-text-muted mt-1">
-              Get your key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" className="text-accent hover:underline">Anthropic Console</a>
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              {envStatus.anthropic ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent-green/10 text-accent-green text-xs font-medium border border-accent-green/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
+                  Configured in .env.local
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent-red/10 text-accent-red text-xs font-medium border border-accent-red/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-red" />
+                  Not set — add ANTHROPIC_API_KEY to .env.local
+                </span>
+              )}
+            </div>
           </div>
           <div>
             <label className={labelCls}>Claude Model</label>
@@ -404,12 +546,79 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed bottom-4 right-4 z-[200] px-5 py-3 rounded-lg text-white font-medium shadow-lg ${toast.err ? 'bg-accent-red' : 'bg-accent-green'}`}>
-          {toast.msg}
-        </div>
-      )}
+      {/* Email Integration */}
+      <div className="rounded-xl bg-bg-card border border-border p-5">
+        <h2 className="text-lg font-semibold text-text-primary mb-4">Email Integration</h2>
+        <p className="text-sm text-text-secondary mb-4">
+          Connect your school Microsoft 365 email to auto-extract tasks from incoming emails.
+        </p>
+
+        {msEmailEnabled ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-accent-green/10 border border-accent-green/30">
+              <span className="w-2.5 h-2.5 rounded-full bg-accent-green shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-primary">Connected</p>
+                <p className="text-xs text-text-muted truncate">{msUserEmail}</p>
+              </div>
+              <button
+                onClick={disconnectEmail}
+                disabled={disconnecting}
+                className="px-3 py-1.5 text-xs text-accent-red border border-accent-red/30 rounded-lg hover:bg-accent-red/10 transition-colors"
+              >
+                {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-text-muted">
+                  Last checked: {msLastFetch
+                    ? new Date(msLastFetch).toLocaleString()
+                    : 'Never'}
+                </p>
+              </div>
+              <button
+                onClick={checkEmailNow}
+                disabled={checkingEmail}
+                className={btnCls}
+              >
+                {checkingEmail ? 'Checking...' : 'Check Now'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className={labelCls}>Azure Credentials (from .env.local)</label>
+              <div className="flex flex-wrap gap-2">
+                {(['ms_client_id', 'ms_client_secret', 'ms_tenant_id'] as const).map(key => (
+                  <span key={key} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${
+                    envStatus[key]
+                      ? 'bg-accent-green/10 text-accent-green border-accent-green/30'
+                      : 'bg-accent-red/10 text-accent-red border-accent-red/30'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${envStatus[key] ? 'bg-accent-green' : 'bg-accent-red'}`} />
+                    {key.replace('ms_', '').replace('_', ' ').toUpperCase()}: {envStatus[key] ? 'Set' : 'Missing'}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-text-muted">
+              Set MS_CLIENT_ID, MS_CLIENT_SECRET, and MS_TENANT_ID in .env.local.
+              Register an app in Azure Portal &gt; Azure AD &gt; App registrations with Mail.Read, offline_access, and User.Read permissions.
+            </p>
+            <button
+              onClick={connectEmail}
+              disabled={!envStatus.ms_client_id || !envStatus.ms_tenant_id}
+              className={`${btnCls} ${!envStatus.ms_client_id || !envStatus.ms_tenant_id ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              Connect Microsoft 365
+            </button>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }

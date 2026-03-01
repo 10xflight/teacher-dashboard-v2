@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { searchParams } = new URL(request.url);
     const start = searchParams.get('start');
     const end = searchParams.get('end');
@@ -33,6 +37,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
     const { date, event_type, title, notes } = body;
 
@@ -50,6 +58,7 @@ export async function POST(request: NextRequest) {
         event_type,
         title,
         notes: notes ?? null,
+        user_id: user.id,
       })
       .select()
       .single();

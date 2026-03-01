@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { getAIConfig, getGeminiModel, generateWithRetry } from '@/lib/ai-service';
 import { tagActivityWithStandards } from '@/lib/standards-tagger';
 
@@ -21,10 +21,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { id } = await params;
     const activityId = parseInt(id);
 
-    // Fetch the activity with class info
     const { data: activity, error: actError } = await supabase
       .from('activities')
       .select('*, classes(name, periods, color)')
@@ -35,7 +38,6 @@ export async function POST(
       return NextResponse.json({ error: 'Activity not found' }, { status: 404 });
     }
 
-    // Fetch brainstorm history from the parent lesson plan (if any)
     let brainstormSummary = '';
     if (activity.lesson_plan_id) {
       const { data: plan } = await supabase
@@ -45,7 +47,6 @@ export async function POST(
         .single();
 
       if (plan?.brainstorm_history && Array.isArray(plan.brainstorm_history)) {
-        // Summarize: take last few exchanges for context
         const history = plan.brainstorm_history as { role: string; content: string }[];
         const lastMessages = history.slice(-6);
         brainstormSummary = lastMessages
@@ -84,7 +85,6 @@ Generate a DIFFERENT activity that fits this class and day. Respond with ONLY va
     const description = (result.description as string) || '';
     const activityType = (result.activity_type as string) || activity.activity_type;
 
-    // Update the activity in-place
     const { data: updated, error: updateError } = await supabase
       .from('activities')
       .update({
@@ -100,7 +100,6 @@ Generate a DIFFERENT activity that fits this class and day. Respond with ONLY va
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    // Re-tag with standards
     const tagResult = await tagActivityWithStandards({
       title,
       description,
@@ -108,13 +107,11 @@ Generate a DIFFERENT activity that fits this class and day. Respond with ONLY va
     });
 
     if (tagResult.codes.length > 0) {
-      // Clear old tags
       await supabase
         .from('activity_standards')
         .delete()
         .eq('activity_id', activityId);
 
-      // Fetch standard IDs for the codes
       const { data: standardRows } = await supabase
         .from('standards')
         .select('id, code')
@@ -130,7 +127,6 @@ Generate a DIFFERENT activity that fits this class and day. Respond with ONLY va
       }
     }
 
-    // Fetch the final activity with standards join
     const { data: final } = await supabase
       .from('activities')
       .select('*, classes(name, periods, color), activity_standards(standard_id, tagged_by, standards(code, description, strand))')

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
 import { generateFullBellringer } from '@/lib/bellringer-generator';
 import { localDateStr } from '@/lib/task-helpers';
+import { requireAuth } from '@/lib/auth';
 
 function getWeekDates(mondayStr: string): string[] {
   const d = new Date(mondayStr + 'T12:00:00');
@@ -23,10 +23,15 @@ function getMondayOfWeek(dateStr?: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
     const weekOf = body.week_of || getMondayOfWeek();
     const teacherNotes = body.notes || '';
     const skipExisting = body.skip_existing !== false;
+    const dayTypes: Record<string, string[]> = body.day_types || {};
 
     const dates = getWeekDates(weekOf);
     const results: Array<{ date: string; success: boolean; bellringer_id?: number; error?: string; skipped?: boolean }> = [];
@@ -48,7 +53,8 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const { result, error } = await generateFullBellringer(teacherNotes);
+        const typesForDay = dayTypes[dateStr] || undefined;
+        const { result, error } = await generateFullBellringer(teacherNotes, typesForDay);
         if (error || !result) {
           results.push({ date: dateStr, success: false, error: error || 'Generation failed' });
           continue;
@@ -59,6 +65,7 @@ export async function POST(request: NextRequest) {
           .from('bellringers')
           .insert({
             date: dateStr,
+            user_id: user.id,
             journal_type: result.journal_type as string || null,
             journal_prompt: result.journal_prompt as string || null,
             journal_subprompt: result.journal_subprompt as string || 'WRITE A PARAGRAPH IN YOUR JOURNAL!',

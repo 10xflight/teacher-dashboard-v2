@@ -100,9 +100,14 @@ export default function PrincipalPortalPage() {
             <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : plans.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <h2 className="text-lg font-semibold text-gray-700 mb-2">No Published Plans Yet</h2>
-            <p className="text-sm text-gray-500">Published lesson plans will appear here.</p>
+          <div className="bg-white rounded-xl border border-gray-200 p-12 flex flex-col items-center">
+            <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+            </div>
+            <h2 className="text-base font-semibold text-gray-700 mb-1">No Published Plans Yet</h2>
+            <p className="text-sm text-gray-500">Published lesson plans will appear here when shared by the teacher.</p>
           </div>
         ) : (
           <div className="space-y-3">

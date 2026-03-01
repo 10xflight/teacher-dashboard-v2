@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get('class_id');
     const sort = searchParams.get('sort') || 'due_date';
@@ -11,7 +15,6 @@ export async function GET(request: NextRequest) {
     const start = searchParams.get('start');
     const end = searchParams.get('end');
 
-    // Build query for incomplete tasks
     let todoQuery = supabase
       .from('tasks')
       .select('*')
@@ -42,7 +45,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: todoError.message }, { status: 500 });
     }
 
-    // Fetch completed tasks
     let doneQuery = supabase
       .from('tasks')
       .select('*')
@@ -75,6 +77,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
     const { text, due_date, class_id } = body;
 
@@ -89,6 +95,7 @@ export async function POST(request: NextRequest) {
       text: text.trim(),
       is_done: false,
       created_date: createdDate,
+      user_id: user.id,
     };
 
     if (due_date) {

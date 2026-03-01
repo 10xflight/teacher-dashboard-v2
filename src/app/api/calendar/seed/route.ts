@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import calendarData from '@/data/calendar-seed.json';
 
 export async function POST() {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     // Get existing events to avoid duplicates
     const { data: existing } = await supabase
       .from('calendar_events')
@@ -19,6 +23,7 @@ export async function POST() {
         event_type: e.event_type,
         title: e.title,
         notes: e.notes || null,
+        user_id: user.id,
       }))
       .filter(e => !existingSet.has(`${e.date}::${e.title}`));
 

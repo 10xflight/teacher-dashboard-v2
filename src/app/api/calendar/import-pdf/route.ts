@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
 import { getAIConfig, getGeminiModel, cleanJsonResponse } from '@/lib/ai-service';
+import { requireAuth } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
 
 interface ParsedCalendarEvent {
@@ -8,6 +8,8 @@ interface ParsedCalendarEvent {
   event_type: string;
   title: string;
 }
+
+const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB
 
 const CALENDAR_PARSE_SYSTEM_PROMPT = `You are a school calendar parser. Parse this school calendar document and extract all dates with events.
 
@@ -38,6 +40,10 @@ RULES:
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const formData = await request.formData();
     const file = formData.get('file');
 
@@ -50,6 +56,14 @@ export async function POST(request: NextRequest) {
 
     if (!fileName.endsWith('.pdf') && !mimeType.includes('pdf')) {
       return NextResponse.json({ error: 'Only PDF files are supported' }, { status: 400 });
+    }
+
+    // Enforce file size limit
+    if (file.size > MAX_PDF_SIZE) {
+      return NextResponse.json(
+        { error: 'PDF too large. Maximum size is 50MB.' },
+        { status: 413 }
+      );
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -162,6 +176,7 @@ export async function POST(request: NextRequest) {
       event_type: e.event_type,
       title: e.title,
       notes: `Imported from: ${fileName}`,
+      user_id: user.id,
     }));
 
     const { data: insertedEvents, error: insertError } = await supabase

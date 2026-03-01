@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { data, error } = await supabase
       .from('media_library')
       .select('*')
@@ -23,6 +27,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const contentType = request.headers.get('content-type') || '';
 
     if (contentType.includes('multipart/form-data')) {
@@ -67,6 +75,7 @@ export async function POST(request: NextRequest) {
           media_type: 'file',
           class_id: classId ? parseInt(classId, 10) : null,
           tags,
+          user_id: user.id,
         })
         .select('*')
         .single();
@@ -95,6 +104,7 @@ export async function POST(request: NextRequest) {
           media_type,
           class_id: class_id || null,
           tags: tags || [],
+          user_id: user.id,
         })
         .select('*')
         .single();

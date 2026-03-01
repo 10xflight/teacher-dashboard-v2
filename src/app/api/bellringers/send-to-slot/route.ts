@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, getOrCreateBellringer } from '@/lib/db';
+import { getOrCreateBellringer } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
     const { prompt_id, target_date, slot } = body;
 
@@ -25,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get or create bellringer for target date
-    const { id: targetBellringerId } = await getOrCreateBellringer(target_date);
+    const { id: targetBellringerId } = await getOrCreateBellringer(target_date, supabase, user.id);
 
     // Copy source prompt to target date/slot
     const { data: prompt, error: upsertError } = await supabase

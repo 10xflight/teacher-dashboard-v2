@@ -27,19 +27,50 @@ function classToGradeBand(className: string): string | null {
   return null;
 }
 
+// Activities that should never be tagged with standards
+const SKIP_PATTERNS = [
+  /snow\s*day/i,
+  /no\s+school/i,
+  /no\s+class/i,
+  /holiday/i,
+  /break/i,
+  /professional\s*day/i,
+  /in-?\s*service/i,
+  /teacher\s+work\s*day/i,
+  /assembly/i,
+  /field\s+trip/i,
+  /testing\s+day/i,
+  /state\s+testing/i,
+  /pep\s+rally/i,
+  /early\s+release/i,
+  /cancelled/i,
+  /canceled/i,
+];
+
+function shouldSkipTagging(title: string): boolean {
+  return SKIP_PATTERNS.some(pattern => pattern.test(title));
+}
+
 const SYSTEM_PROMPT = `You are an Oklahoma academic standards tagger. Given an activity and a list of available standards, pick the 1-3 most relevant standard codes.
 
 Rules:
 - Pick 1-3 codes that BEST match the activity
 - ONLY return codes from the provided list
+- If the activity is NOT academic (e.g. snow day, assembly, field trip, testing day, holiday, no school), return an EMPTY codes array
 - Keep reasoning to one short sentence
 
-Respond with ONLY valid JSON. Example:
-{"codes": ["9.3.R.1"], "reasoning": "Matches literary analysis"}`;
+Respond with ONLY valid JSON. Examples:
+{"codes": ["9.3.R.1"], "reasoning": "Matches literary analysis"}
+{"codes": [], "reasoning": "Not an academic activity"}`;
 
 export async function tagActivityWithStandards(
   activity: TaggableActivity
 ): Promise<{ codes: string[]; reasoning: string; error: string | null }> {
+  // Skip non-academic activities entirely — no AI call needed
+  if (shouldSkipTagging(activity.title)) {
+    return { codes: [], reasoning: 'Not an academic activity', error: null };
+  }
+
   const aiConfig = await getAIConfig();
   const model = aiConfig.provider === 'gemini'
     ? getGeminiModel(aiConfig.geminiApiKey, aiConfig.geminiModel)

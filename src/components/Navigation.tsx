@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { createSupabaseBrowser } from '@/lib/supabase-browser';
 
 interface NavLink {
   href: string;
@@ -35,6 +36,15 @@ const navLinks: NavLink[] = [
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+      </svg>
+    ),
+  },
+  {
+    href: '/materials',
+    label: 'Materials',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
     ),
   },
@@ -93,8 +103,12 @@ interface NavigationProps {
 
 export default function Navigation({ isOpen, onClose }: NavigationProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [teacherName, setTeacherName] = useState('');
   const [schoolName, setSchoolName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+
+  const [emailBadge, setEmailBadge] = useState(0);
 
   useEffect(() => {
     async function loadSettings() {
@@ -107,7 +121,39 @@ export default function Navigation({ isOpen, onClose }: NavigationProps) {
         }
       } catch { /* ignore */ }
     }
+    async function loadUser() {
+      try {
+        const supabase = createSupabaseBrowser();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) setUserEmail(user.email);
+      } catch { /* ignore */ }
+    }
     loadSettings();
+    loadUser();
+  }, []);
+
+  async function handleSignOut() {
+    const supabase = createSupabaseBrowser();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  }
+
+  // Fetch pending email task count for badge
+  useEffect(() => {
+    async function loadBadge() {
+      try {
+        const res = await fetch('/api/email/queue?count=true');
+        if (res.ok) {
+          const data = await res.json();
+          setEmailBadge(data.count || 0);
+        }
+      } catch { /* ignore */ }
+    }
+    loadBadge();
+    // Refresh badge every 2 minutes
+    const interval = setInterval(loadBadge, 120000);
+    return () => clearInterval(interval);
   }, []);
 
   const isActive = (href: string) => {
@@ -192,6 +238,11 @@ export default function Navigation({ isOpen, onClose }: NavigationProps) {
                       {link.icon}
                     </span>
                     {link.label}
+                    {link.label === 'Tasks' && emailBadge > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 text-[0.6rem] font-bold leading-none bg-accent-yellow text-[#111] rounded-full">
+                        {emailBadge}
+                      </span>
+                    )}
                     {active && (
                       <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />
                     )}
@@ -213,9 +264,19 @@ export default function Navigation({ isOpen, onClose }: NavigationProps) {
                 {displayName}
               </p>
               <p className="text-xs text-text-muted truncate">
-                {schoolName || 'Teacher Dashboard'}
+                {userEmail || schoolName || 'Teacher Dashboard'}
               </p>
             </div>
+            <button
+              onClick={handleSignOut}
+              className="p-1.5 text-text-muted hover:text-accent-red transition-colors"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
           </div>
         </div>
       </aside>

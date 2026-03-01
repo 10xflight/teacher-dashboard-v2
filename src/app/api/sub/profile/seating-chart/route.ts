@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const formData = await request.formData();
     const imageFile = formData.get('image') as File | null;
 
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     await supabase
       .from('classroom_profiles')
-      .upsert({ key: 'seating_chart_urls', value: JSON.stringify(urls) }, { onConflict: 'key' });
+      .upsert({ key: 'seating_chart_urls', value: JSON.stringify(urls), user_id: user.id }, { onConflict: 'key,user_id' });
 
     return NextResponse.json({ url: publicUrl, urls });
   } catch (err) {
@@ -58,6 +62,10 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const { url } = await request.json();
 
     if (!url) {
@@ -80,7 +88,7 @@ export async function DELETE(request: NextRequest) {
 
     await supabase
       .from('classroom_profiles')
-      .upsert({ key: 'seating_chart_urls', value: JSON.stringify(urls) }, { onConflict: 'key' });
+      .upsert({ key: 'seating_chart_urls', value: JSON.stringify(urls), user_id: user.id }, { onConflict: 'key,user_id' });
 
     // Try to remove from storage
     try {

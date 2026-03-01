@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import standardsData from '@/data/oklahoma-standards.json';
 
 // Map JSON subject keys to (subject, grade_band) for the standards table
@@ -19,6 +19,10 @@ interface RawStandard {
 
 export async function POST() {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const allRows: {
       subject: string;
       grade_band: string;

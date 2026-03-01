@@ -1,5 +1,4 @@
 import { Resend } from 'resend';
-import { supabase } from '@/lib/db';
 
 interface EmailResult {
   success: boolean;
@@ -16,28 +15,12 @@ export async function sendPrincipalNotification(
   teacherName: string,
   principalEmail: string
 ): Promise<EmailResult> {
-  // Try env var first, then settings table
-  let apiKey = process.env.RESEND_API_KEY || '';
-
-  if (!apiKey) {
-    try {
-      const { data } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'resend_api_key')
-        .single();
-      if (data?.value) {
-        apiKey = data.value;
-      }
-    } catch {
-      // Settings lookup failed, continue without key
-    }
-  }
+  const apiKey = process.env.RESEND_API_KEY || '';
 
   if (!apiKey) {
     return {
       success: false,
-      message: 'Email not sent: No Resend API key configured. Set RESEND_API_KEY env var or resend_api_key in settings.',
+      message: 'Email not sent: No Resend API key configured. Set RESEND_API_KEY in .env.local.',
     };
   }
 

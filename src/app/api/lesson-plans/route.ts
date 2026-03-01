@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { searchParams } = new URL(request.url);
     const list = searchParams.get('list');
     const week_of = searchParams.get('week_of');
@@ -97,6 +101,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
     const { week_of } = body;
 
@@ -110,6 +118,7 @@ export async function POST(request: NextRequest) {
         week_of,
         status: 'draft',
         brainstorm_history: [],
+        user_id: user.id,
       })
       .select()
       .single();

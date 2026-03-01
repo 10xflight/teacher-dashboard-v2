@@ -4,12 +4,14 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Navigation from './Navigation';
 import { ToastProvider } from './Toast';
+import { ConfirmProvider } from './ConfirmDialog';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <ToastProvider>
+    <ConfirmProvider>
       <div className="flex h-screen overflow-hidden bg-bg-primary">
         {/* Sidebar Navigation */}
         <Navigation
@@ -41,6 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+    </ConfirmProvider>
     </ToastProvider>
   );
 }

@@ -3,7 +3,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { localDateStr } from '@/lib/task-helpers';
+import { localDateStr, nextSchoolDay } from '@/lib/task-helpers';
+import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const JOURNAL_TYPE_OPTIONS = [
   { value: 'creative', label: 'Creative' },
@@ -74,29 +76,30 @@ interface ACTFields {
   act_rule: string;
 }
 
-function Toast({ message, isError, onDone }: { message: string; isError?: boolean; onDone: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 4000);
-    return () => clearTimeout(t);
-  }, [onDone]);
-
-  return (
-    <div className={`fixed bottom-4 right-4 z-[200] px-5 py-3 rounded-lg text-white font-medium shadow-lg transition-all animate-[slideIn_0.3s_ease]
-      ${isError ? 'bg-[#e74c3c]' : 'bg-[#4ECDC4] text-[#1a1a2e]'}`}>
-      {message}
-    </div>
-  );
-}
-
 export default function BellringerEditPage() {
   const params = useParams();
-  const initialDate = params.date === 'today'
-    ? localDateStr()
-    : String(params.date);
+  const paramDate = params.date === 'today' ? nextSchoolDay() : String(params.date);
 
   // The "viewing" date — drives what date we assign to / load from
-  const [viewDate, setViewDate] = useState(initialDate);
+  const [viewDate, setViewDate] = useState(paramDate);
   const [dateAssigned, setDateAssigned] = useState(false);
+  const restoredRef = useRef(false);
+
+  // On mount, restore last viewed date from localStorage if navigating to "today"
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    if (params.date === 'today' || paramDate === nextSchoolDay()) {
+      const saved = localStorage.getItem('bellringer_last_date');
+      if (saved && saved !== paramDate) {
+        setViewDate(saved);
+        window.history.replaceState(null, '', `/bellringer/edit/${saved}`);
+        return;
+      }
+    }
+    localStorage.setItem('bellringer_last_date', paramDate);
+    window.history.replaceState(null, '', `/bellringer/edit/${paramDate}`);
+  }, [params.date, paramDate]);
 
   const [prompts, setPrompts] = useState<PromptSlot[]>([
     { journal_type: 'creative', journal_prompt: '', journal_subprompt: 'WRITE A PARAGRAPH IN YOUR JOURNAL!', image_path: null },
@@ -113,16 +116,13 @@ export default function BellringerEditPage() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [toast, setToast] = useState<{ message: string; isError?: boolean } | null>(null);
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [copyToOpen, setCopyToOpen] = useState(false);
   const copyToDateRef = useRef<HTMLInputElement>(null);
   const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const loaded = useRef(false);
   const datePickerRef = useRef<HTMLInputElement>(null);
-
-  const showToast = useCallback((message: string, isError?: boolean) => {
-    setToast({ message, isError });
-  }, []);
 
   // Format date for display: "Mon 02/24/26"
   function formatDateChip(dateStr: string) {
@@ -135,11 +135,19 @@ export default function BellringerEditPage() {
   }
 
   // Guard date changes — warn if unsaved edits
-  function changeDate(newDate: string) {
+  async function changeDate(newDate: string) {
     if (dirty) {
-      if (!confirm('You have unsaved changes. Leave without saving?')) return;
+      const ok = await confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Leave without saving?',
+        confirmLabel: 'Leave',
+        variant: 'warning',
+      });
+      if (!ok) return;
     }
     setViewDate(newDate);
+    localStorage.setItem('bellringer_last_date', newDate);
+    window.history.replaceState(null, '', `/bellringer/edit/${newDate}`);
   }
 
   // Step date by N days, skipping weekends
@@ -283,19 +291,29 @@ export default function BellringerEditPage() {
     }, 0);
   }
 
-  function wrapActSelection(openTag: string, closeTag: string) {
-    const ta = document.getElementById('act-question') as HTMLTextAreaElement;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const text = ta.value;
-    const selected = text.substring(start, end);
-    if (!selected) return;
+  function applyActFormat() {
+    document.execCommand('bold', false);
     markDirty();
-    setAct(prev => ({
-      ...prev,
-      act_question: text.substring(0, start) + openTag + selected + closeTag + text.substring(end),
-    }));
+  }
+
+  function clearActFormat() {
+    const el = document.getElementById('act-question-editor');
+    if (!el) return;
+    el.innerHTML = el.innerText;
+    syncActEditor();
+  }
+
+  function syncActEditor() {
+    const el = document.getElementById('act-question-editor');
+    if (!el) return;
+    // Normalize: convert <strong>, <u> to <b>, strip all other tags
+    const html = el.innerHTML
+      .replace(/<strong>/gi, '<b>').replace(/<\/strong>/gi, '</b>')
+      .replace(/<u>/gi, '<b>').replace(/<\/u>/gi, '</b>')
+      .replace(/<br\s*\/?>/gi, ' ')
+      .replace(/<(?!\/?b\b)[^>]+>/gi, '');
+    markDirty();
+    setAct(prev => ({ ...prev, act_question: html }));
   }
 
   function getPromptPayloads() {
@@ -558,8 +576,14 @@ export default function BellringerEditPage() {
     }
   }
 
-  function clearAll() {
-    if (!confirm('Clear all fields?')) return;
+  async function clearAll() {
+    const ok = await confirm({
+      title: 'Clear All Fields',
+      message: 'This will reset all prompts, the ACT question, and teacher notes. Continue?',
+      confirmLabel: 'Clear All',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setPrompts([0, 1, 2, 3].map(() => ({
       journal_type: 'creative',
       journal_prompt: '',
@@ -632,9 +656,9 @@ export default function BellringerEditPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          {viewDate !== localDateStr() && (
+          {viewDate !== nextSchoolDay() && (
             <button
-              onClick={() => changeDate(localDateStr())}
+              onClick={() => changeDate(nextSchoolDay())}
               className="ml-0.5 px-2 py-1 text-xs text-[#4ECDC4] bg-[#253352] border border-[#2d3f5f] rounded-lg hover:bg-[#344868] transition-colors"
             >
               Today
@@ -844,28 +868,33 @@ export default function BellringerEditPage() {
 
         <div className="mb-4">
           <label className="block text-xs uppercase tracking-wider text-[#4ECDC4] font-semibold mb-1">Question</label>
-          <div className="flex gap-1 mb-1">
-            <button className="px-2 py-0.5 text-xs bg-[#253352] border border-[#2d3f5f] rounded text-white font-serif hover:border-[#4ECDC4]"
-              onClick={() => wrapActSelection('<b>', '</b>')} title="Bold"><b>B</b></button>
-            <button className="px-2 py-0.5 text-xs bg-[#253352] border border-[#2d3f5f] rounded text-white font-serif hover:border-[#4ECDC4]"
-              onClick={() => wrapActSelection('<i>', '</i>')} title="Italic"><i>I</i></button>
+          <div className="flex gap-1 mb-1.5">
+            <button className="px-2.5 py-1 text-xs bg-[#253352] border border-[#2d3f5f] rounded text-white font-serif hover:border-[#4ECDC4] transition-colors"
+              onMouseDown={e => e.preventDefault()} onClick={applyActFormat} title="Bold / Underline — select text first"><b><u>B</u></b></button>
+            <button className="px-2.5 py-1 text-xs bg-[#253352] border border-[#2d3f5f] rounded text-white hover:border-[#4ECDC4] transition-colors"
+              onMouseDown={e => e.preventDefault()} onClick={clearActFormat} title="Clear all formatting">Clear</button>
           </div>
-          <textarea
-            id="act-question"
-            value={act.act_question}
-            onChange={e => { setAct(prev => ({ ...prev, act_question: e.target.value })); markDirty(); }}
-            className={`${inputCls} min-h-[60px] resize-y font-light`}
+          <div
+            id="act-question-editor"
+            contentEditable
+            suppressContentEditableWarning
+            className={`${inputCls} min-h-[60px] font-light [&_b]:underline [&_b]:decoration-[#E8A87C] [&_b]:decoration-2 [&_b]:underline-offset-2 [&_b]:font-bold [&_u]:underline [&_u]:decoration-[#E8A87C] [&_u]:decoration-2 [&_u]:underline-offset-2 [&_u]:font-bold`}
+            dangerouslySetInnerHTML={{ __html: act.act_question }}
+            onBlur={() => syncActEditor()}
           />
         </div>
 
         <div className="mb-4">
           <label className="block text-xs uppercase tracking-wider text-[#4ECDC4] font-semibold mb-1">
-            Answer Choices (one per line: A. ... B. ... C. ... D. ...)
+            Answer Choices
           </label>
           <textarea
             value={act.act_choices}
             onChange={e => { setAct(prev => ({ ...prev, act_choices: e.target.value })); markDirty(); }}
-            className={`${inputCls} min-h-[90px] resize-y`}
+            className={`${inputCls} resize-none overflow-hidden`}
+            style={{ height: 'auto' }}
+            ref={el => { if (el) el.style.height = el.scrollHeight + 'px'; }}
+            onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
           />
         </div>
 
@@ -898,15 +927,6 @@ export default function BellringerEditPage() {
 
       </main>
 
-      {/* Toast */}
-      {toast && <Toast message={toast.message} isError={toast.isError} onDone={() => setToast(null)} />}
-
-      <style jsx>{`
-        @keyframes slideIn {
-          from { transform: translateY(20px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }

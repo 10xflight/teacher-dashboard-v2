@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 import { tagActivityWithStandards } from '@/lib/standards-tagger';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { lesson_plan_id } = await request.json();
 
     if (!lesson_plan_id) {

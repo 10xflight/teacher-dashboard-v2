@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { searchParams } = new URL(request.url);
     const subject = searchParams.get('subject');
 
@@ -44,6 +48,10 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE() {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     // 1. Delete all activity_standards tags
     const { error: tagError } = await supabase
       .from('activity_standards')

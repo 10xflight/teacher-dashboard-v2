@@ -5,6 +5,14 @@ export function localDateStr(d: Date = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** Return YYYY-MM-DD for the next school day (Mon-Fri). On weekdays returns today, on weekends returns next Monday. */
+export function nextSchoolDay(d: Date = new Date()): string {
+  const day = d.getDay();
+  if (day === 0) d.setDate(d.getDate() + 1);      // Sunday → Monday
+  else if (day === 6) d.setDate(d.getDate() + 2);  // Saturday → Monday
+  return localDateStr(d);
+}
+
 /**
  * Parse natural language date input into YYYY-MM-DD string.
  */

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth';
 import { generateSubDashSnapshot } from '@/lib/subdash-generator';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
     const body = await request.json();
     const { date, custom_notes = null, media_ids = [] } = body;
 

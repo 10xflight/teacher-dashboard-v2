@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth';
 import { exportLessonPlanHTML } from '@/lib/export-service';
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
     const { searchParams } = new URL(request.url);
     const lessonPlanId = searchParams.get('lesson_plan_id');
 

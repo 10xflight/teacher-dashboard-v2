@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase } = auth;
+
     const { data, error } = await supabase
       .from('classroom_profiles')
       .select('key, value');
@@ -27,6 +31,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { user, supabase } = auth;
+
     const body = await request.json();
 
     if (typeof body !== 'object' || body === null || Array.isArray(body)) {
@@ -47,11 +55,12 @@ export async function POST(request: NextRequest) {
     const upsertRows = entries.map(([key, value]) => ({
       key,
       value: typeof value === 'string' ? value : JSON.stringify(value),
+      user_id: user.id,
     }));
 
     const { error } = await supabase
       .from('classroom_profiles')
-      .upsert(upsertRows, { onConflict: 'key' });
+      .upsert(upsertRows, { onConflict: 'key,user_id' });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
