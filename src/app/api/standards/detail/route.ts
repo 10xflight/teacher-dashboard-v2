@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
+    const classId = searchParams.get('class_id');
 
     if (!code) {
       return NextResponse.json({ error: 'code parameter is required' }, { status: 400 });
@@ -47,6 +48,8 @@ export async function GET(request: NextRequest) {
           classes: { name: string } | { name: string }[] | null;
         } | null;
         if (!act) return null;
+        // Filter by class if specified
+        if (classId && act.class_id !== parseInt(classId)) return null;
         const cls = Array.isArray(act.classes) ? act.classes[0] : act.classes;
         return {
           id: act.id,

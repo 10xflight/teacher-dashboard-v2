@@ -118,3 +118,7 @@ body {
   animation: shimmer 1.8s ease-in-out infinite;
   border-radius: 6px;
 }
+
+/* ── Print styles for material iframe ── */
+/* Printing is handled via iframe (see printMaterialPreview utility).
+   These styles are injected into the iframe's document. */

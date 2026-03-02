@@ -346,7 +346,7 @@ export default function StandardsCoveragePage() {
     setDetailLoading(true);
     setDetailData(null);
     try {
-      const res = await fetch(`/api/standards/detail?code=${encodeURIComponent(code)}`);
+      const res = await fetch(`/api/standards/detail?code=${encodeURIComponent(code)}${selectedClassId ? `&class_id=${selectedClassId}` : ''}`);
       if (res.ok) {
         const data: StandardDetail = await res.json();
         setDetailData(data);

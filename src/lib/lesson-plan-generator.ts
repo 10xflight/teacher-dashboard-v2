@@ -84,7 +84,7 @@ export async function brainstormWithAI(
   try {
     const text = await chatWithAI(systemPrompt, messages, {
       temperature: 0.9,
-      maxOutputTokens: 2000,
+      maxOutputTokens: 4000,
     });
     return { response: text, error: null };
   } catch (e) {

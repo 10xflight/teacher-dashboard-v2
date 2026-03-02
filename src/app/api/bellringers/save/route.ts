@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       journal_type: string;
       journal_prompt: string;
       journal_subprompt: string;
+      image_path?: string | null;
     }>;
 
     if (promptsArray && promptsArray.length > 0) {
@@ -73,18 +74,19 @@ export async function POST(request: NextRequest) {
     // Upsert each prompt
     if (promptsArray && promptsArray.length > 0) {
       for (const p of promptsArray) {
-        const { error: upsertError } = await supabase
-          .from('bellringer_prompts')
-          .upsert(
-            {
+        const upsertData: Record<string, unknown> = {
               bellringer_id: bellringerId,
               slot: p.slot,
               journal_type: p.journal_type || null,
               journal_prompt: p.journal_prompt || null,
               journal_subprompt: p.journal_subprompt || 'WRITE A PARAGRAPH IN YOUR JOURNAL!',
-            },
-            { onConflict: 'bellringer_id,slot' }
-          );
+            };
+        if (p.image_path !== undefined) {
+          upsertData.image_path = p.image_path;
+        }
+        const { error: upsertError } = await supabase
+          .from('bellringer_prompts')
+          .upsert(upsertData, { onConflict: 'bellringer_id,slot' });
 
         if (upsertError) throw upsertError;
       }

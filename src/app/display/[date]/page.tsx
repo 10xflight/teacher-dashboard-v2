@@ -168,30 +168,41 @@ export default function DisplayPage() {
         const card = el.closest('[data-card]') as HTMLElement;
         if (!card) return;
         const isEmoji = promptCards[idx]?.type === 'emoji';
+        const hasImage = !!promptCards[idx]?.image;
 
-        const cardH = card.clientHeight;
-        const typeLabel = card.querySelector('[data-type-label]') as HTMLElement;
-        const labelH = typeLabel ? typeLabel.offsetHeight : 0;
-        const emojiEl = card.querySelector('[data-emoji-block]') as HTMLElement;
-        const emojiH = emojiEl ? emojiEl.offsetHeight : 0;
-        const gap = 6;
-        const padV = 32;
-        const maxH = cardH - labelH - emojiH - gap - padV;
+        // For image cards, measure against the parent flex container height
+        // For non-image cards, measure against available card space
+        let maxH: number;
+        if (hasImage) {
+          const imageRow = el.closest('[data-image-row]') as HTMLElement;
+          maxH = imageRow ? imageRow.clientHeight : card.clientHeight - 60;
+        } else {
+          const cardH = card.clientHeight;
+          const typeLabel = card.querySelector('[data-type-label]') as HTMLElement;
+          const labelH = typeLabel ? typeLabel.offsetHeight : 0;
+          const emojiEl = card.querySelector('[data-emoji-block]') as HTMLElement;
+          const emojiH = emojiEl ? emojiEl.offsetHeight : 0;
+          const gap = 6;
+          const padV = 32;
+          maxH = cardH - labelH - emojiH - gap - padV;
+        }
 
-        el.style.flex = 'none';
         el.style.overflow = 'visible';
 
-        let size = isEmoji ? 2.0 : 3.2;
+        // Start smaller when image is present since text area is narrower
+        let size = hasImage ? 2.2 : isEmoji ? 2.0 : 3.2;
         el.style.fontSize = `${size}rem`;
         el.style.lineHeight = '1.3';
 
-        const minSize = isEmoji ? 0.9 : 1.0;
+        const minSize = isEmoji ? 0.9 : 0.8;
         while (el.scrollHeight > maxH && size > minSize) {
           size -= 0.1;
           el.style.fontSize = `${size}rem`;
         }
 
-        el.style.flex = isEmoji ? 'none' : '1 1 0';
+        if (!hasImage) {
+          el.style.flex = isEmoji ? 'none' : '1 1 0';
+        }
         el.style.overflow = 'hidden';
       });
     };
@@ -344,26 +355,38 @@ export default function DisplayPage() {
                 {card.label}
               </span>
 
-              {card.image && (
-                <img
-                  src={card.image}
-                  alt=""
-                  className="float-right w-[45%] max-h-[80%] object-contain rounded-lg ml-3 mb-2"
-                />
-              )}
-
-              <div
-                ref={el => { promptTextRefs.current[i] = el; }}
-                className="flex-1 overflow-hidden whitespace-pre-line min-h-0"
-                style={{ fontSize: card.type === 'emoji' ? '1.3rem' : '1.6rem', lineHeight: '1.3' }}
-                dangerouslySetInnerHTML={{ __html: card.text }}
-              />
-
-              {card.emojis && (
-                <div data-emoji-block className="text-center flex-1 flex items-center justify-center min-h-0 overflow-hidden break-all"
-                  style={{ fontSize: '4rem', lineHeight: '1.2', letterSpacing: '10px', minHeight: '4.5rem' }}>
-                  {card.emojis}
+              {card.image ? (
+                <div className="flex-1 flex gap-3 overflow-hidden min-h-0" data-image-row>
+                  <div className="flex-1 min-w-0 min-h-0 flex items-center overflow-hidden">
+                    <div
+                      ref={el => { promptTextRefs.current[i] = el; }}
+                      className="overflow-hidden whitespace-pre-line w-full"
+                      style={{ fontSize: '1.6rem', lineHeight: '1.3' }}
+                      dangerouslySetInnerHTML={{ __html: card.text }}
+                    />
+                  </div>
+                  <img
+                    src={card.image}
+                    alt=""
+                    className="w-[40%] shrink-0 object-contain rounded-lg self-center max-h-full"
+                  />
                 </div>
+              ) : (
+                <>
+                  <div
+                    ref={el => { promptTextRefs.current[i] = el; }}
+                    className="flex-1 overflow-hidden whitespace-pre-line min-h-0"
+                    style={{ fontSize: card.type === 'emoji' ? '1.3rem' : '1.6rem', lineHeight: '1.3' }}
+                    dangerouslySetInnerHTML={{ __html: card.text }}
+                  />
+
+                  {card.emojis && (
+                    <div data-emoji-block className="text-center flex-1 flex items-center justify-center min-h-0 overflow-hidden break-all"
+                      style={{ fontSize: '4rem', lineHeight: '1.2', letterSpacing: '10px', minHeight: '4.5rem' }}>
+                      {card.emojis}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}

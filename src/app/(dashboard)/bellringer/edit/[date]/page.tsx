@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { localDateStr, nextSchoolDay } from '@/lib/task-helpers';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+import ImagePicker from '@/components/ImagePicker';
 
 const JOURNAL_TYPE_OPTIONS = [
   { value: 'creative', label: 'Creative' },
@@ -322,6 +323,7 @@ export default function BellringerEditPage() {
       journal_type: p.journal_type,
       journal_prompt: p.journal_prompt,
       journal_subprompt: subprompt,
+      image_path: p.image_path,
     }));
   }
 
@@ -428,6 +430,8 @@ export default function BellringerEditPage() {
       let ok = true;
       if (promptsRes.ok && promptsData.prompts) {
         const slots: PromptSlot[] = [0, 1, 2, 3].map(i => {
+          // Skip image-type slots — user handles those manually
+          if (prompts[i].journal_type === 'image') return prompts[i];
           const p = promptsData.prompts.find((pr: { slot: number }) => pr.slot === i);
           return {
             journal_type: p?.journal_type || prompts[i].journal_type,
@@ -575,6 +579,37 @@ export default function BellringerEditPage() {
       showToast('Failed to remove image', true);
     }
   }
+
+  function setSlotImageUrl(slot: number, url: string) {
+    setPrompts(prev => {
+      const next = [...prev];
+      next[slot] = { ...next[slot], image_path: url };
+      return next;
+    });
+    markDirty();
+  }
+
+  // Listen for AI-generated prompts from ImagePicker
+  useEffect(() => {
+    function handleImagePrompt(e: Event) {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.slot !== undefined && detail?.prompt) {
+        const p = detail.prompt;
+        setPrompts(prev => {
+          const next = [...prev];
+          next[detail.slot] = {
+            ...next[detail.slot],
+            journal_type: p.journal_type || 'image',
+            journal_prompt: p.journal_prompt || next[detail.slot].journal_prompt,
+          };
+          return next;
+        });
+        markDirty();
+      }
+    }
+    window.addEventListener('bellringer-image-prompt', handleImagePrompt);
+    return () => window.removeEventListener('bellringer-image-prompt', handleImagePrompt);
+  }, []);
 
   async function clearAll() {
     const ok = await confirm({
@@ -796,27 +831,17 @@ export default function BellringerEditPage() {
                 className={`${inputCls} min-h-[80px] resize-y mb-2`}
               />
 
-              {/* Image zone */}
-              <div
-                className="border border-dashed border-[#2d3f5f] rounded-md p-2.5 text-center cursor-pointer text-xs text-[#6c7a96] hover:border-[#4ECDC4] transition-colors mb-2"
-                onClick={() => document.getElementById(`img-input-${i}`)?.click()}
-              >
-                <input
-                  id={`img-input-${i}`}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => { if (e.target.files?.[0]) uploadSlotImage(i, e.target.files[0]); }}
+              {/* Image zone — only for image type */}
+              {p.journal_type === 'image' && (
+                <ImagePicker
+                  slot={i}
+                  currentImage={p.image_path}
+                  onImageSelected={(file) => uploadSlotImage(i, file)}
+                  onImageUrl={(url) => setSlotImageUrl(i, url)}
+                  onRemoveImage={() => removeImage(i)}
+                  date={viewDate}
                 />
-                {p.image_path ? (
-                  <>
-                    <img src={p.image_path} alt="" className="max-w-full max-h-[100px] rounded mx-auto mt-1" />
-                    <span>Click to change image</span>
-                  </>
-                ) : (
-                  <span>Click to upload image</span>
-                )}
-              </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-1.5 flex-wrap">

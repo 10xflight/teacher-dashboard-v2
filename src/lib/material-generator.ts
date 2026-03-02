@@ -1,4 +1,5 @@
 import { getAIConfig, getGeminiModel, generateWithRetry } from './ai-service';
+import { getPromptForType } from './material-prompts';
 
 export type MaterialType =
   | 'quiz' | 'vocabulary_test' | 'grammar_test' | 'sentence_dressup'
@@ -51,7 +52,8 @@ RULES:
 - Make games genuinely fun — students should WANT to play
 - For physical games, include clear setup instructions a substitute teacher could follow
 - Generate 10-20 items for quizzes/worksheets, 5 categories with 5 questions for Jeopardy
-- Always include answer keys`;
+- Always include answer keys
+- NEVER include numbers/numbering in item text (question, prompt, etc.) — the UI adds numbering automatically. Wrong: "1. What is..." Right: "What is..."`;
 
 const FRENCH_SYSTEM_PROMPT = `You are a French language material generator for a high school French 1 class at Stratford High School in Stratford, Oklahoma. Students are beginners.
 
@@ -74,7 +76,8 @@ RULES:
 - Keep vocabulary and grammar at French 1 level
 - Include English translations for all French content
 - Make activities engaging and interactive
-- For cultural activities, connect to students' own experiences`;
+- For cultural activities, connect to students' own experiences
+- NEVER include numbers/numbering in item text (question, prompt, etc.) — the UI adds numbering automatically`;
 
 export async function generateMaterial(context: MaterialContext) {
   const aiConfig = await getAIConfig();
@@ -90,7 +93,9 @@ export async function generateMaterial(context: MaterialContext) {
   }
 
   const isFrench = context.class_name.toLowerCase().includes('french');
-  const systemPrompt = isFrench ? FRENCH_SYSTEM_PROMPT : MATERIAL_SYSTEM_PROMPT;
+  const basePrompt = isFrench ? FRENCH_SYSTEM_PROMPT : MATERIAL_SYSTEM_PROMPT;
+  const typePrompt = getPromptForType(context.material_type, isFrench);
+  const systemPrompt = basePrompt + '\n\n' + typePrompt;
 
   const userPrompt = `Generate material for:
 CLASS: ${context.class_name} (${context.grade_level})
@@ -106,7 +111,7 @@ Respond with ONLY valid JSON.`;
       model,
       systemPrompt,
       userPrompt,
-      { temperature: 0.8, maxOutputTokens: 4000 }
+      { temperature: 0.8, maxOutputTokens: 8000 }
     );
     return { result, error: null };
   } catch (e) {

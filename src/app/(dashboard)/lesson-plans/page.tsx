@@ -190,8 +190,22 @@ export default function LessonPlansPage() {
     strand: string | null;
     hitCount: number;
     activities: { id: number; title: string; date: string | null; className: string }[];
+    activityId: number;
+    standardId: number;
   } | null>(null);
   const [standardPopupLoading, setStandardPopupLoading] = useState(false);
+
+  // State: manual standards picker
+  const [stdPickerActivity, setStdPickerActivity] = useState<{
+    id: number;
+    className: string;
+    existingCodes: Set<string>;
+  } | null>(null);
+  const [stdPickerStandards, setStdPickerStandards] = useState<
+    { id: number; code: string; description: string; strand: string | null }[]
+  >([]);
+  const [stdPickerSearch, setStdPickerSearch] = useState('');
+  const [stdPickerLoading, setStdPickerLoading] = useState(false);
 
   // ──────────────── Data Loading ────────────────
 
@@ -492,9 +506,9 @@ export default function LessonPlansPage() {
 
   // ──────────────── Standard Detail Popup ────────────────
 
-  async function openStandardPopup(code: string, description: string, strand: string | null) {
+  async function openStandardPopup(code: string, description: string, strand: string | null, activityId: number, standardId: number) {
     setStandardPopupLoading(true);
-    setStandardPopup({ code, description, strand, hitCount: 0, activities: [] });
+    setStandardPopup({ code, description, strand, hitCount: 0, activities: [], activityId, standardId });
 
     try {
       const res = await fetch(`/api/standards/detail?code=${encodeURIComponent(code)}`);
@@ -506,11 +520,131 @@ export default function LessonPlansPage() {
           strand,
           hitCount: data.hit_count ?? 0,
           activities: data.activities ?? [],
+          activityId,
+          standardId,
         });
       }
     } catch { /* show what we have */ }
 
     setStandardPopupLoading(false);
+  }
+
+  async function removeStandardViaPopup() {
+    if (!standardPopup) return;
+    const { activityId, standardId, code } = standardPopup;
+    try {
+      const res = await fetch(`/api/activities/${activityId}/standards`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ standard_id: standardId }),
+      });
+      if (res.ok) {
+        setActivities(prev => prev.map(a => {
+          if (a.id !== activityId) return a;
+          return {
+            ...a,
+            activity_standards: (a.activity_standards || []).filter(
+              as => as.standard_id !== standardId
+            ),
+          };
+        }));
+        // Also update picker state if open
+        setStdPickerActivity(prev => prev && prev.id === activityId ? {
+          ...prev,
+          existingCodes: new Set([...prev.existingCodes].filter(c => c !== code)),
+        } : prev);
+        setStandardPopup(null);
+      }
+    } catch { /* ignore */ }
+  }
+
+  // ──────────────── Manual Standards Picker ────────────────
+
+  async function openStandardsPicker(act: ActivityData) {
+    const className = act.classes?.name || '';
+    const existingCodes = new Set(
+      (act.activity_standards || [])
+        .map(as => as.standards?.code)
+        .filter((c): c is string => !!c)
+    );
+    setStdPickerActivity({ id: act.id, className, existingCodes });
+    setStdPickerSearch('');
+    setStdPickerLoading(true);
+
+    try {
+      // Map class name to subject for filtering
+      const lower = className.toLowerCase();
+      const subject = lower.includes('french') ? 'French' : 'English';
+      const res = await fetch(`/api/standards?subject=${encodeURIComponent(subject)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setStdPickerStandards(data.map((s: { id: number; code: string; description: string; strand: string | null }) => ({
+          id: s.id,
+          code: s.code,
+          description: s.description,
+          strand: s.strand,
+        })));
+      }
+    } catch { /* ignore */ }
+    setStdPickerLoading(false);
+  }
+
+  async function addStandardToActivity(standardId: number, code: string) {
+    if (!stdPickerActivity) return;
+    try {
+      const res = await fetch(`/api/activities/${stdPickerActivity.id}/standards`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ standard_id: standardId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Update activities state to reflect the new standard
+        setActivities(prev => prev.map(a => {
+          if (a.id !== stdPickerActivity.id) return a;
+          const existing = a.activity_standards || [];
+          return {
+            ...a,
+            activity_standards: [...existing, {
+              standard_id: standardId,
+              tagged_by: 'manual',
+              standards: data.standards || { code, description: '', strand: null },
+            }],
+          };
+        }));
+        // Update picker's existing codes set
+        setStdPickerActivity(prev => prev ? {
+          ...prev,
+          existingCodes: new Set([...prev.existingCodes, code]),
+        } : null);
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function removeStandardFromActivity(standardId: number, code: string) {
+    if (!stdPickerActivity) return;
+    try {
+      const res = await fetch(`/api/activities/${stdPickerActivity.id}/standards`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ standard_id: standardId }),
+      });
+      if (res.ok) {
+        setActivities(prev => prev.map(a => {
+          if (a.id !== stdPickerActivity.id) return a;
+          return {
+            ...a,
+            activity_standards: (a.activity_standards || []).filter(
+              as => as.standard_id !== standardId
+            ),
+          };
+        }));
+        setStdPickerActivity(prev => prev ? {
+          ...prev,
+          existingCodes: new Set([...prev.existingCodes].filter(c => c !== code)),
+        } : null);
+      }
+    } catch { /* ignore */ }
   }
 
   // ──────────────── Activity Actions ────────────────
@@ -1169,10 +1303,10 @@ export default function LessonPlansPage() {
                           {clsActivities.length > 0 && (
                             <div className="space-y-1.5 mb-2">
                               {clsActivities.map(act => {
-                                // Standard badges
-                                const standards = act.activity_standards
-                                  ?.map(as => as.standards)
-                                  .filter((s): s is NonNullable<typeof s> => s !== null) || [];
+                                // Standard badges (with standard_id for removal)
+                                const standards = (act.activity_standards || [])
+                                  .filter(as => as.standards !== null)
+                                  .map(as => ({ ...as.standards!, standard_id: as.standard_id }));
                                 const isRegenerating = regeneratingId === act.id;
 
                                 return (
@@ -1211,7 +1345,7 @@ export default function LessonPlansPage() {
                                             {standards.map((std) => (
                                               <button
                                                 key={std.code}
-                                                onClick={(e) => { e.stopPropagation(); openStandardPopup(std.code, std.description, std.strand); }}
+                                                onClick={(e) => { e.stopPropagation(); openStandardPopup(std.code, std.description, std.strand, act.id, std.standard_id); }}
                                                 className="px-1.5 py-0.5 rounded text-[0.55rem] font-medium bg-indigo-500/15 text-indigo-400 border border-indigo-500/20 cursor-pointer hover:bg-indigo-500/25 transition-colors shrink-0">
                                                 {std.code}
                                               </button>
@@ -1220,6 +1354,12 @@ export default function LessonPlansPage() {
                                         ) : (
                                           <span className="text-[0.6rem] text-text-muted italic shrink-0">No standard</span>
                                         )}
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); openStandardsPicker(act); }}
+                                          className="w-4 h-4 rounded flex items-center justify-center text-[0.6rem] font-bold bg-indigo-500/10 text-indigo-400/60 border border-indigo-500/15 hover:bg-indigo-500/25 hover:text-indigo-400 transition-colors shrink-0"
+                                          title="Add standard">
+                                          +
+                                        </button>
                                       </div>
                                     </div>
 
@@ -1340,12 +1480,17 @@ export default function LessonPlansPage() {
               </button>
             </div>
 
-            {/* Stats */}
+            {/* Stats + Remove */}
             <div className="px-5 py-3 border-b border-border flex items-center gap-4 text-xs">
               <span className="text-text-muted">Times addressed:</span>
               <span className="font-bold text-text-primary">
                 {standardPopupLoading ? '...' : standardPopup.hitCount}
               </span>
+              <button
+                onClick={removeStandardViaPopup}
+                className="ml-auto px-3 py-1 bg-accent-red/10 text-accent-red/80 hover:text-accent-red hover:bg-accent-red/20 rounded-lg text-xs font-medium transition-colors">
+                Remove from activity
+              </button>
             </div>
 
             {/* Activity history */}
@@ -1370,6 +1515,102 @@ export default function LessonPlansPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Standards Picker Modal */}
+      {stdPickerActivity && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setStdPickerActivity(null)}>
+          <div className="bg-bg-card border border-border rounded-xl w-full max-w-lg mx-4 shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="text-sm font-bold text-text-primary">Add Standard</h3>
+                <p className="text-xs text-text-muted mt-0.5">{stdPickerActivity.className}</p>
+              </div>
+              <button
+                onClick={() => setStdPickerActivity(null)}
+                className="p-1 text-text-muted hover:text-text-primary transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-5 py-3 border-b border-border shrink-0">
+              <input
+                type="text"
+                value={stdPickerSearch}
+                onChange={e => setStdPickerSearch(e.target.value)}
+                placeholder="Search by code, description, or strand..."
+                className="w-full px-3 py-2 bg-bg-input border border-border rounded-lg text-text-primary text-sm focus:border-accent focus:outline-none"
+                autoFocus
+              />
+            </div>
+
+            {/* Standards list */}
+            <div className="flex-1 overflow-y-auto px-5 py-3">
+              {stdPickerLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (() => {
+                const q = stdPickerSearch.toLowerCase();
+                const filtered = stdPickerStandards.filter(s =>
+                  !q || s.code.toLowerCase().includes(q) || s.description.toLowerCase().includes(q) || (s.strand || '').toLowerCase().includes(q)
+                );
+                const isAdded = (code: string) => stdPickerActivity.existingCodes.has(code);
+
+                if (filtered.length === 0) {
+                  return <p className="text-xs text-text-muted italic text-center py-8">No standards found</p>;
+                }
+
+                // Group by strand
+                const byStrand = new Map<string, typeof filtered>();
+                for (const s of filtered) {
+                  const key = s.strand || 'General';
+                  if (!byStrand.has(key)) byStrand.set(key, []);
+                  byStrand.get(key)!.push(s);
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {[...byStrand.entries()].map(([strand, stds]) => (
+                      <div key={strand}>
+                        <h4 className="text-[0.65rem] font-semibold text-text-muted uppercase tracking-wider mb-1.5">{strand}</h4>
+                        <div className="space-y-1">
+                          {stds.map(s => {
+                            const added = isAdded(s.code);
+                            return (
+                              <button
+                                key={s.id}
+                                onClick={() => added ? removeStandardFromActivity(s.id, s.code) : addStandardToActivity(s.id, s.code)}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-start gap-2 ${
+                                  added
+                                    ? 'bg-indigo-500/15 border border-indigo-500/30'
+                                    : 'bg-bg-secondary hover:bg-hover border border-transparent'
+                                }`}>
+                                <span className={`font-mono font-bold shrink-0 ${added ? 'text-indigo-400' : 'text-text-secondary'}`}>
+                                  {s.code}
+                                </span>
+                                <span className={`flex-1 ${added ? 'text-indigo-300' : 'text-text-muted'}`}>
+                                  {s.description}
+                                </span>
+                                {added && (
+                                  <span className="text-indigo-400 shrink-0 text-[0.6rem] font-semibold mt-0.5">ADDED</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

@@ -49,13 +49,51 @@ export async function GET() {
       return NextResponse.json({ error: stdError.message }, { status: 500 });
     }
 
-    // 3. Fetch all activity_standards with the activity's date and class_id
-    const { data: activityStandards, error: asError } = await supabase
-      .from('activity_standards')
-      .select('standard_id, activity_id, activities(date, class_id)');
+    // 3. Fetch activity_standards and activities SEPARATELY to avoid join issues
+    //    Also paginate to avoid Supabase's default 1000-row limit
 
-    if (asError) {
-      return NextResponse.json({ error: asError.message }, { status: 500 });
+    // 3a. Fetch ALL activity_standards (paginated)
+    let allActivityStandards: { standard_id: number; activity_id: number }[] = [];
+    {
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('activity_standards')
+          .select('standard_id, activity_id')
+          .range(from, from + pageSize - 1);
+        if (error) {
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+        if (data) allActivityStandards = allActivityStandards.concat(data);
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+    }
+
+    // 3b. Fetch ALL activities (just id, date, class_id) — paginated
+    let allActivities: { id: number; date: string | null; class_id: number }[] = [];
+    {
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('activities')
+          .select('id, date, class_id')
+          .range(from, from + pageSize - 1);
+        if (error) {
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+        if (data) allActivities = allActivities.concat(data);
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+    }
+
+    // 3c. Build activity lookup by id
+    const activityMap = new Map<number, { date: string | null; class_id: number }>();
+    for (const act of allActivities) {
+      activityMap.set(act.id, { date: act.date, class_id: act.class_id });
     }
 
     // 4. Build a lookup: per class_id + standard_id -> { hit_count, last_hit_date }
@@ -64,13 +102,8 @@ export async function GET() {
       { hit_count: number; last_hit_date: string | null }
     > = {};
 
-    for (const row of activityStandards ?? []) {
-      // Supabase returns the joined activity as an object (or null)
-      const activity = row.activities as unknown as {
-        date: string | null;
-        class_id: number;
-      } | null;
-
+    for (const row of allActivityStandards) {
+      const activity = activityMap.get(row.activity_id);
       if (!activity) continue;
 
       const key = `${activity.class_id}:${row.standard_id}`;

@@ -165,7 +165,7 @@ export default function Navigation({ isOpen, onClose }: NavigationProps) {
 
   const displayName = teacherName || 'Teacher';
   const initials = displayName.split(/[\s.]+/).filter(Boolean).map(w => w[0]?.toUpperCase()).join('').slice(0, 2) || 'T';
-  const shortSchool = schoolName ? (schoolName.length > 20 ? schoolName.slice(0, 18) + '...' : schoolName) : '';
+  const shortSchool = schoolName || '';
 
   return (
     <>
@@ -194,12 +194,17 @@ export default function Navigation({ isOpen, onClose }: NavigationProps) {
             <div>
               <Link href="/" onClick={onClose}>
                 <h1 className="text-lg font-bold text-accent tracking-tight hover:brightness-110 transition-all cursor-pointer">
-                  Teacher Dashboard
+                  TeacherDash
                 </h1>
               </Link>
               <p className="text-xs text-text-muted mt-0.5">
-                {displayName}{shortSchool ? ` \u00B7 ${shortSchool}` : ''}
+                {displayName}
               </p>
+              {shortSchool && (
+                <p className="text-xs text-text-muted">
+                  {shortSchool}
+                </p>
+              )}
             </div>
             {/* Close button for mobile */}
             <button
