@@ -248,9 +248,6 @@ export default function Navigation({ isOpen, onClose }: NavigationProps) {
                         {emailBadge}
                       </span>
                     )}
-                    {active && (
-                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />
-                    )}
                   </Link>
                 </li>
               );

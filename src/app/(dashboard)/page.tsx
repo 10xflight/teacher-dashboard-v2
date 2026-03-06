@@ -258,7 +258,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-y-3">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
           <p className="text-sm text-text-muted mt-1">
@@ -271,7 +271,7 @@ export default function Dashboard() {
             Edit Bellringer
           </Link>
           <a href={`/display/${schoolDay}`} target="_blank" rel="noopener noreferrer"
-            className="px-4 py-2 bg-accent-yellow text-[#111] rounded-lg font-bold text-sm hover:brightness-110">
+            className="px-4 py-2 border border-accent/40 text-accent rounded-lg font-semibold text-sm hover:bg-accent/10 transition-colors">
             Display on TV
           </a>
         </div>
@@ -311,7 +311,7 @@ export default function Dashboard() {
           </Link>
         </div>
         {weekDays.length === 0 && <WeekStripSkeleton />}
-        <div className={`grid grid-cols-5 gap-3 ${weekDays.length === 0 ? 'hidden' : ''}`}>
+        <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 ${weekDays.length === 0 ? 'hidden' : ''}`}>
           {weekDays.map(day => {
             const pendingTasks = day.tasks.filter(t => !t.is_done);
             return (
@@ -358,7 +358,7 @@ export default function Dashboard() {
                   </div>
                 )}
                 {day.events.length === 0 && pendingTasks.length === 0 && !day.hasBellringer && (
-                  <div className="text-sm text-text-muted/50 mt-2 italic">No events</div>
+                  <span className="text-sm text-text-muted/50 mt-2 hover:text-accent transition-colors">View day &rarr;</span>
                 )}
               </button>
             );

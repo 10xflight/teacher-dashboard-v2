@@ -213,7 +213,7 @@ export default function DayViewPage() {
           </button>
         )}
         <Link href={`/subpack?date=${dateStr}`}
-          className="text-sm text-text-secondary hover:text-accent transition-colors">
+          className="px-3 py-1.5 text-sm border border-accent/30 text-accent rounded-lg hover:bg-accent/10 transition-colors">
           Generate Sub Pack
         </Link>
       </div>
@@ -302,9 +302,19 @@ export default function DayViewPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {acts.length > 0 && (
-                      <span className="text-xs text-text-muted">
-                        {readyCount}/{acts.length} ready
-                      </span>
+                      <>
+                        <span className="text-xs text-text-muted">
+                          {readyCount}/{acts.length} ready
+                        </span>
+                        <span className="flex items-center gap-3 text-[0.65rem] text-text-muted">
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />Ready
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-accent-yellow" />Needs materials
+                          </span>
+                        </span>
+                      </>
                     )}
                     <Link href={`/classes/${cls.id}/history`}
                       className="text-xs text-accent hover:underline">
