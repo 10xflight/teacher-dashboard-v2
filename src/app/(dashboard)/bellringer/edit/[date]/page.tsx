@@ -201,19 +201,35 @@ export default function BellringerEditPage() {
     }
   }
 
+  // Reset form to blank defaults
+  function resetForm() {
+    setPrompts([
+      { journal_type: 'creative', journal_prompt: '', journal_subprompt: 'WRITE A PARAGRAPH IN YOUR JOURNAL!', image_path: null },
+      { journal_type: 'quote', journal_prompt: '', journal_subprompt: 'WRITE A PARAGRAPH IN YOUR JOURNAL!', image_path: null },
+      { journal_type: 'emoji', journal_prompt: '', journal_subprompt: 'WRITE A PARAGRAPH IN YOUR JOURNAL!', image_path: null },
+      { journal_type: 'reflective', journal_prompt: '', journal_subprompt: 'WRITE A PARAGRAPH IN YOUR JOURNAL!', image_path: null },
+    ]);
+    setSubprompt('WRITE A PARAGRAPH IN YOUR JOURNAL!');
+    setAct({ act_skill: '', act_question: '', act_choices: '', act_correct_answer: 'A', act_rule: '' });
+  }
+
   // Load bellringer for the current viewDate
   const loadBellringer = useCallback(async (date: string) => {
     loaded.current = false;
+    // Always reset form first so stale data from another date never lingers
+    resetForm();
     try {
       const res = await fetch(`/api/bellringers/${date}`);
       if (!res.ok) {
         setDateAssigned(false);
+        setDirty(false);
         loaded.current = true;
         return;
       }
       const data = await res.json();
       if (!data?.bellringer && (!data?.prompts || data.prompts.length === 0)) {
         setDateAssigned(false);
+        setDirty(false);
         loaded.current = true;
         return;
       }
