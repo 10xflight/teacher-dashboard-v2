@@ -629,9 +629,9 @@ export default function BellringerEditPage() {
 
   async function clearAll() {
     const ok = await confirm({
-      title: 'Clear All Fields',
+      title: 'Clear Today',
       message: 'This will reset all prompts, the ACT question, and teacher notes. Continue?',
-      confirmLabel: 'Clear All',
+      confirmLabel: 'Clear Today',
       variant: 'danger',
     });
     if (!ok) return;
@@ -770,7 +770,7 @@ export default function BellringerEditPage() {
               onClick={clearFromDate}
               className="px-2.5 py-1.5 text-sm text-[#e74c3c] bg-[#2a3a5c] rounded-lg font-semibold hover:bg-[#3a2030] transition-colors"
             >
-              Clear
+              Unassign
             </button>
           )}
         </div>
@@ -779,7 +779,7 @@ export default function BellringerEditPage() {
 
         {/* Right side buttons */}
         <div className="flex gap-1.5 ml-auto items-center shrink-0 flex-wrap">
-          <button className={btnMuted} onClick={clearAll}>Clear All</button>
+          <button className={btnMuted} onClick={clearAll}>Clear Today</button>
           <Link href="/bellringer/batch" className={btnMuted}>Batch</Link>
           <Link href="/bellringer/library" className={btnMuted}>Library</Link>
           <button
